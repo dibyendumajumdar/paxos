@@ -2,13 +2,16 @@ package org.redukti.paxos.net.example.echoserv;
 
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
-import org.redukti.paxos.net.api.ResponseHandler;
 import org.redukti.paxos.net.impl.EventLoopImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class EchoServer implements RequestHandler, ResponseHandler {
+public class EchoServer implements RequestHandler {
+
+    static final Logger log = LoggerFactory.getLogger(EventLoopImpl.class);
 
     static AtomicInteger requests = new AtomicInteger(0);
 
@@ -18,7 +21,7 @@ public class EchoServer implements RequestHandler, ResponseHandler {
         try (EventLoopImpl eventLoop = new EventLoopImpl()) {
 
             //eventLoop.start("localhost", 9001, m);
-            eventLoop.start("localhost", 9001, m);
+            eventLoop.startServerChannel("localhost", 9001, m);
 
             while (true) {
                 eventLoop.select();
@@ -31,7 +34,7 @@ public class EchoServer implements RequestHandler, ResponseHandler {
 
     @Override
     public void handleRequest(Message request, Message response) {
-        System.err.println("Handling request");
+        log.info("Handling request " + request.getCorrelationId());
         int value = request.getData().rewind().getInt();
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.putInt(value);
@@ -40,19 +43,5 @@ public class EchoServer implements RequestHandler, ResponseHandler {
         requests.incrementAndGet();
     }
 
-    @Override
-    public void onTimeout() {
-
-    }
-
-    @Override
-    public void onException(Exception e) {
-
-    }
-
-    @Override
-    public void onResponse(Message response) {
-        throw new UnsupportedOperationException();
-    }
 
 }

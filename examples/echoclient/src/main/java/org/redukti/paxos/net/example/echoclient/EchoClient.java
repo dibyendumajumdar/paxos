@@ -2,17 +2,14 @@ package org.redukti.paxos.net.example.echoclient;
 
 import org.redukti.paxos.net.api.Connection;
 import org.redukti.paxos.net.api.Message;
-import org.redukti.paxos.net.api.RequestHandler;
 import org.redukti.paxos.net.api.ResponseHandler;
 import org.redukti.paxos.net.impl.EventLoopImpl;
-import org.redukti.paxos.net.impl.MessageHeader;
-import org.redukti.paxos.net.impl.MessageImpl;
 
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class EchoClient implements RequestHandler, ResponseHandler {
+public class EchoClient implements ResponseHandler {
 
     static AtomicInteger received = new AtomicInteger(0);
 
@@ -29,10 +26,12 @@ public class EchoClient implements RequestHandler, ResponseHandler {
 
             if (connection.isConnected()) {
                 System.out.println("Sending value");
-                connection.submit(makeRequest(), m, Duration.ofSeconds(1));
+                for (int i = 0; i < 5; i++) {
+                    connection.submit(makeRequest(), m, Duration.ofSeconds(1));
+                }
             }
 
-            while (received.get() == 0)
+            while (received.get() < 5)
                 eventLoop.select();
         }
         catch (Exception e) {
@@ -41,18 +40,11 @@ public class EchoClient implements RequestHandler, ResponseHandler {
 
     }
 
-    private static Message makeRequest() {
+    private static ByteBuffer makeRequest() {
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.putInt(42);
         bb.flip();
-        MessageHeader header = new MessageHeader();
-        return new MessageImpl(header, bb);
-    }
-
-
-    @Override
-    public void handleRequest(Message request, Message response) {
-        throw new UnsupportedOperationException();
+        return bb;
     }
 
     @Override

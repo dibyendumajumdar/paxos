@@ -1,9 +1,9 @@
 package org.redukti.paxos.net.api;
 
+import java.nio.ByteBuffer;
 import java.time.Duration;
 
 public interface Connection {
-    void submit(Message request, ResponseHandler responseHandler, Duration timeout);
-    void setErrored();
+    void submit(ByteBuffer requestData, ResponseHandler responseHandler, Duration timeout);
     boolean isConnected();
 }

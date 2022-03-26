@@ -31,15 +31,22 @@ public class EventLoopImpl implements EventLoop {
     volatile boolean stop;
     volatile boolean errored;
 
+    // TODO we should allow more than one server channel and corresponding request handler
     RequestHandler requestHandler;
     ServerSocketChannel serverSocketChannel;
     InetSocketAddress serverSocketAddress;
 
+    // Should be inputs
     ExecutorService executor = Executors.newFixedThreadPool(5);
     ExecutorService clientExecutor = Executors.newFixedThreadPool(5);
 
     AtomicInteger connId = new AtomicInteger(0);
 
+    // TODO we need to add ability to timeout requests
+    /**
+     * When a client connection send a request it can ask for a callback to be invoked
+     * on completion of the request by the server.
+     */
     ConcurrentHashMap<CorrelationId, ResponseHandler> pendingRequests = new ConcurrentHashMap<>();
 
     public EventLoopImpl() {
@@ -68,11 +75,11 @@ public class EventLoopImpl implements EventLoop {
     }
 
     @Override
-    public void start(String hostname, int port, RequestHandler requestHandler) {
-        if (!opened)
-            throw new NetException("Not open");
-        if (serverSocketChannel != null)
-            throw new NetException("ServerSocketChannel already created");
+    public void startServerChannel(String hostname, int port, RequestHandler requestHandler) {
+        if (!opened || errored || stop)
+            throw new NetException("Cannot start");
+        if (serverSocketChannel != null || this.requestHandler != null)
+            throw new IllegalArgumentException("ServerSocketChannel already created");
         this.requestHandler = requestHandler;
         this.serverSocketAddress = new InetSocketAddress(hostname, port);
         try {
@@ -84,15 +91,17 @@ public class EventLoopImpl implements EventLoop {
         }
         catch (Exception e) {
             log.error("Error starting server channel", e);
-            throw new NetException("", e);
+            errored = true;
+            stop = true;
+            throw new NetException("Failed to start server channel", e);
         }
         opened = true;
     }
 
     public void select() {
-//        if (errored) {
-//            throw new NetworkException(new MessageInstance(m_erroredException));
-//        }
+        if (errored) {
+            throw new NetException("The EventLoop is in an error state");
+        }
         if (!opened || stop) {
             return;
         }
@@ -136,7 +145,7 @@ public class EventLoopImpl implements EventLoop {
         } catch (IOException e) {
             errored = true;
             log.error("Error when selecting events", e);
-            throw new NetException("");
+            throw new NetException("", e);
         }
         Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
         while (iter.hasNext()) {
@@ -166,7 +175,7 @@ public class EventLoopImpl implements EventLoop {
                 key.interestOps(SelectionKey.OP_READ);
             }
         } catch (IOException e) {
-            Connection connection = (Connection) key.attachment();
+            ConnectionImpl connection = (ConnectionImpl) key.attachment();
             connection.setErrored();
             log.error("Error occurred when completing connection " + connection, e);
         }
@@ -221,7 +230,7 @@ public class EventLoopImpl implements EventLoop {
             // Server side
             RequestDispatcher requestDispatcher = new RequestDispatcher(this,
                     protocolHandler, requestHandler, requestHeader, request);
-            log.info("Scheduling server write of " + requestHeader.getDataSize());
+            log.info("Scheduling server write of " + requestHeader.getDataSize() + " for " + correlationId);
             executor.execute(requestDispatcher);
         }
         else {
@@ -232,7 +241,7 @@ public class EventLoopImpl implements EventLoop {
                 log.warn("No handler found for " + correlationId);
                 return;
             }
-            log.info("Scheduling client response of " + requestHeader.getDataSize());
+            log.info("Scheduling client response of " + requestHeader.getDataSize()  + " for " + correlationId);
             ResponseDispatcher responseDispatcher = new ResponseDispatcher(this, handler, requestHeader, request);
             clientExecutor.execute(responseDispatcher);
         }
@@ -256,6 +265,7 @@ public class EventLoopImpl implements EventLoop {
      * request handling is delegated to a RequestHandler instance.
      *
      * @author dibyendumajumdar
+     * @see EventLoop#startServerChannel(String, int, RequestHandler)
      */
     static final class RequestDispatcher implements Runnable {
 
@@ -284,18 +294,24 @@ public class EventLoopImpl implements EventLoop {
             MessageHeader messageHeader = new MessageHeader(false);
             messageHeader.setCorrelationId(requestHeader.getCorrelationId());
             messageHeader.setHasException(false);
-            Message response = new MessageImpl(messageHeader, defaultData);
+            MessageImpl response = new MessageImpl(messageHeader, defaultData);
             try {
                 requestHandler.handleRequest(request, response);
             } catch (Exception e) {
                 response.setData(ByteBuffer.wrap(e.getMessage().getBytes()));
                 messageHeader.setDataSize(response.getData().limit());
+                messageHeader.setHasException(true);
             }
             protocolHandler.queueWrite(new WriteRequest(messageHeader,
                     response.getData()));
         }
     }
 
+    /**
+     * Executes the response handle in the client thread pool; this
+     * is the handler that the caller of Connection.submit() set.
+     * @see Connection#submit(ByteBuffer, ResponseHandler, Duration) 
+     */
     static final class ResponseDispatcher implements Runnable {
 
         final EventLoopImpl eventLoop;
@@ -317,7 +333,7 @@ public class EventLoopImpl implements EventLoop {
             try {
                 responseHandler.onResponse(response);
             } catch (Exception e) {
-                EventLoopImpl.log.error("Error in ResponseHandler", e);
+                EventLoopImpl.log.error("Error in ResponseHandler while processing " + response.getCorrelationId(), e);
             }
         }
     }

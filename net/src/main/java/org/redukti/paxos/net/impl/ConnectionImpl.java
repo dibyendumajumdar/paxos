@@ -4,14 +4,15 @@ import org.redukti.paxos.net.api.Connection;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
 
+import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionImpl extends ProtocolHandler implements Connection {
 
-    int id;
-    AtomicInteger requestId = new AtomicInteger(0);
+    final int id;
+    final AtomicInteger requestId = new AtomicInteger(0);
 
     public ConnectionImpl(int id, EventLoopImpl eventLoop, SocketChannel socketChannel) {
         super(eventLoop);
@@ -20,7 +21,9 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
     }
 
     @Override
-    public void submit(Message request, ResponseHandler responseHandler, Duration timeout) {
+    public void submit(ByteBuffer requestData, ResponseHandler responseHandler, Duration timeout) {
+        MessageHeader header = new MessageHeader(true);
+        MessageImpl request = new MessageImpl(header, requestData);
         request.setCorrelationId(new CorrelationId(id, requestId.incrementAndGet()));
         if (responseHandler != null) {
             eventLoop.queueResponseHandler(request, responseHandler);
@@ -28,7 +31,6 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
         queueWrite(new WriteRequest(request.getHeader(), request.getData()));
     }
 
-    @Override
     public void setErrored() {
         failed();
     }
@@ -40,7 +42,7 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
 
     @Override
     public String toString() {
-        return "ConnectionImpl{" +
+        return "Connection={" +
                 "id=" + id +
                 '}';
     }

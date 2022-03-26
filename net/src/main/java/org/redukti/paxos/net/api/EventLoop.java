@@ -7,7 +7,7 @@ public interface EventLoop extends Closeable {
 
     Connection clientConnection(String address, int port, Duration timeout);
 
-    void start(String serverAddress, int serverPort, RequestHandler requestHandler);
+    void startServerChannel(String serverAddress, int serverPort, RequestHandler requestHandler);
 
     void select();
 }

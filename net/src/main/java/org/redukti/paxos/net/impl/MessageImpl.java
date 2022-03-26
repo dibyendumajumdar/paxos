@@ -10,8 +10,16 @@ public class MessageImpl implements Message {
 
     public MessageImpl(MessageHeader header, ByteBuffer data) {
         this.header = header;
-        header.setDataSize(data.limit());
+        setDataSize(header, data);
         this.data = data;
+    }
+
+    private void setDataSize(MessageHeader header, ByteBuffer data) {
+        int size = data.limit()- data.position();
+        if (size < 0) {
+            throw new IllegalArgumentException("Message data is invalid");
+        }
+        header.setDataSize(size);
     }
 
     @Override
@@ -29,7 +37,7 @@ public class MessageImpl implements Message {
 
     public void setData(ByteBuffer data) {
         this.data = data;
-        this.header.setDataSize(data.limit());
+        setDataSize(header, data);
     }
 
     public MessageHeader getHeader() {
@@ -47,8 +55,15 @@ public class MessageImpl implements Message {
         return headerData;
     }
 
-    @Override
     public void setCorrelationId(CorrelationId correlationId) {
         header.setCorrelationId(correlationId);
+    }
+
+    @Override
+    public String toString() {
+        return "Message={" +
+                header +
+                ",data=..." +
+                '}';
     }
 }

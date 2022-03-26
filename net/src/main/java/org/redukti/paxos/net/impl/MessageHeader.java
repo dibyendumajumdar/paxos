@@ -74,4 +74,13 @@ public class MessageHeader {
         b = bb.get();
         hasException = b == 1;
     }
+
+    @Override
+    public String toString() {
+        return "MessageHeader={" +
+                correlationId +
+                ", dataSize=" + dataSize +
+                ", isRequest=" + isRequest +
+                '}';
+    }
 }

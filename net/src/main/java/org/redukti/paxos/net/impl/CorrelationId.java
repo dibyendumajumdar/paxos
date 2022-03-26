@@ -23,4 +23,12 @@ public class CorrelationId {
     public int hashCode() {
         return Objects.hash(connectionId, requestId);
     }
+
+    @Override
+    public String toString() {
+        return "CorrelationId={" +
+                "connectionId=" + connectionId +
+                ", requestId=" + requestId +
+                '}';
+    }
 }
