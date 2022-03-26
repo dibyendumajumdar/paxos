@@ -7,6 +7,15 @@ public class MessageHeader {
     CorrelationId correlationId;
     int dataSize = 0;
     boolean hasException = false;
+    boolean isRequest;
+
+    public MessageHeader() {
+        this.isRequest = true;
+    }
+
+    MessageHeader(boolean isRequest) {
+        this.isRequest = isRequest;
+    }
 
     public CorrelationId getCorrelationId() {
         return correlationId;
@@ -33,7 +42,7 @@ public class MessageHeader {
     }
 
     static ByteBuffer allocate() {
-        return ByteBuffer.allocate(21);
+        return ByteBuffer.allocate(22);
     }
 
     void store(ByteBuffer bb) {
@@ -44,6 +53,7 @@ public class MessageHeader {
         bb.putInt(correlationId.connectionId);
         bb.putLong(correlationId.requestId);
         bb.putInt(dataSize);
+        bb.put((byte) (isRequest ? 1 : 0));
         bb.put((byte) (hasException ? 1 : 0));
     }
 
@@ -60,6 +70,8 @@ public class MessageHeader {
         correlationId = new CorrelationId(connId, reqId);
         dataSize = bb.getInt();
         byte b = bb.get();
+        isRequest = b == 1;
+        b = bb.get();
         hasException = b == 1;
     }
 }

@@ -15,6 +15,7 @@ final class WriteRequest {
     WriteRequest(MessageHeader messageHeader, ByteBuffer data) {
         this.messageHeader = messageHeader;
         this.data = data;
+        this.messageHeader.setDataSize(this.data.limit());
     }
 
     MessageHeader getResponseHeader() {
@@ -39,7 +40,7 @@ final class WriteRequest {
  *
  */
 public abstract class ProtocolHandler {
-    final EventLoopImpl networkServer;
+    final EventLoopImpl eventLoop;
     protected SocketChannel socketChannel;
 
     static final int STATE_INIT = 0;
@@ -61,7 +62,7 @@ public abstract class ProtocolHandler {
     boolean okay = true;
 
     ProtocolHandler(EventLoopImpl networkServer) {
-        this.networkServer = networkServer;
+        this.eventLoop = networkServer;
     }
 
     /**
@@ -73,6 +74,7 @@ public abstract class ProtocolHandler {
     synchronized void doRead(SelectionKey key) {
 
         if (!okay) {
+            EventLoopImpl.log.error("Channel in error state");
             throw new NetException("Channel has errored");
         }
         try {
@@ -117,6 +119,7 @@ public abstract class ProtocolHandler {
                     /* parse the header */
                     readHeader.rewind();
                     requestHeader.retrieve(readHeader);
+                    EventLoopImpl.log.info("Reading payload of " + requestHeader.getDataSize());
                     /* allocate buffer for reading the payload */
                     readPayload = ByteBuffer.allocate(requestHeader
                             .getDataSize());
@@ -133,6 +136,10 @@ public abstract class ProtocolHandler {
                     if (readPayload.remaining() == 0) {
                         /* we got the payload */
                         readState = STATE_PAYLOAD_COMPLETED;
+                        if (readPayload.limit() != requestHeader.getDataSize()) {
+                            EventLoopImpl.log.error("Read " + readPayload.limit() + " but expected " + requestHeader.getDataSize());
+                            throw new IOException();
+                        }
                     } else {
                         /* still more to read, must resume later */
                         break;
@@ -141,7 +148,7 @@ public abstract class ProtocolHandler {
 
                 if (readState == STATE_PAYLOAD_COMPLETED) {
                     /* read completed, queue the request */
-                    networkServer.queueRequest(this, requestHeader,
+                    eventLoop.queueRequest(this, requestHeader,
                             readPayload);
                     /* let's see if we can read another message */
                     readState = STATE_INIT;
@@ -149,8 +156,7 @@ public abstract class ProtocolHandler {
                 }
             }
         } catch (IOException e) {
-//                networkServer.log.error(getClass(), "doRead",
-//                        new MessageInstance(m_readIOException, e).toString());
+            EventLoopImpl.log.error("Error in read operation", e);
             failed();
         }
     }
@@ -175,6 +181,7 @@ public abstract class ProtocolHandler {
      */
     synchronized void doWrite(SelectionKey key) {
         if (!okay) {
+            EventLoopImpl.log.error("Channel in error state");
             throw new NetException("");
         }
         try {
@@ -235,8 +242,7 @@ public abstract class ProtocolHandler {
                 }
             }
         } catch (IOException e) {
-//                networkServer.log.error(getClass(), "doWrite",
-//                        new MessageInstance(m_writeIOException, e).toString());
+            EventLoopImpl.log.error("Error in write operation", e);
             failed();
         }
     }
@@ -248,13 +254,8 @@ public abstract class ProtocolHandler {
      * @param wr A write request
      */
     synchronized void queueWrite(WriteRequest wr) {
-//            if (networkServer.log.isTraceEnabled()) {
-//                networkServer.log.trace(getClass(), "queueWrite",
-//                        "queuing write " + wr.response.limit());
-//            }
-        wr.messageHeader.setDataSize(wr.data.limit());
         writeQueue.add(wr);
-        networkServer.selector.wakeup();
+        eventLoop.selector.wakeup();
     }
 
     /**
@@ -263,4 +264,6 @@ public abstract class ProtocolHandler {
     synchronized boolean isWritable() {
         return writeQueue.size() > 0;
     }
+
+
 }

@@ -23,8 +23,25 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
     public void submit(Message request, ResponseHandler responseHandler, Duration timeout) {
         request.setCorrelationId(new CorrelationId(id, requestId.incrementAndGet()));
         if (responseHandler != null) {
-            networkServer.queueResponseHandler(request, responseHandler);
+            eventLoop.queueResponseHandler(request, responseHandler);
         }
-        this.writeQueue.add(new WriteRequest(request.getHeader(), request.getData()));
+        queueWrite(new WriteRequest(request.getHeader(), request.getData()));
+    }
+
+    @Override
+    public void setErrored() {
+        failed();
+    }
+
+    @Override
+    public boolean isConnected() {
+        return socketChannel != null && socketChannel.isConnected();
+    }
+
+    @Override
+    public String toString() {
+        return "ConnectionImpl{" +
+                "id=" + id +
+                '}';
     }
 }

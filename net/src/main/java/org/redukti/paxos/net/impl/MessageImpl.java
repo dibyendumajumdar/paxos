@@ -49,6 +49,6 @@ public class MessageImpl implements Message {
 
     @Override
     public void setCorrelationId(CorrelationId correlationId) {
-
+        header.setCorrelationId(correlationId);
     }
 }

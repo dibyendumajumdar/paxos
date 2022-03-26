@@ -4,4 +4,6 @@ import java.time.Duration;
 
 public interface Connection {
     void submit(Message request, ResponseHandler responseHandler, Duration timeout);
+    void setErrored();
+    boolean isConnected();
 }

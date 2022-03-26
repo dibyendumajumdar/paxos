@@ -9,3 +9,6 @@
 
 rootProject.name = 'paxos'
 include('net')
+include 'examples:echoclient'
+include 'examples:echoserver'
+
