@@ -8,7 +8,7 @@
  */
 
 rootProject.name = 'paxos'
-include('net')
+include('net','log','basic','multi')
 include 'examples:echoclient'
 include 'examples:echoserver'
 
