@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022 Dibyendu Majumdar
+ * MIT License
+ */
 package org.redukti.paxos.net.impl;
 
 import java.util.Objects;
