@@ -2,7 +2,7 @@
  * Copyright (c) 2022 Dibyendu Majumdar
  * MIT License
  */
-package org.redukti.paxos.log;
+package org.redukti.paxos.log.api;
 
 public interface Ledger {
 
