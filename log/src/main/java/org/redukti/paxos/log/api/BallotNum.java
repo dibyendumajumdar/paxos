@@ -4,6 +4,7 @@
  */
 package org.redukti.paxos.log.api;
 
+import java.nio.ByteBuffer;
 import java.util.Objects;
 
 public class BallotNum implements Comparable<BallotNum> {
@@ -47,4 +48,19 @@ public class BallotNum implements Comparable<BallotNum> {
                 ", processNum=" + processNum +
                 '}';
     }
+
+    public static int size() {
+        return Integer.BYTES + Long.BYTES;
+    }
+
+    public void store(ByteBuffer bb) {
+        bb.putLong(proposalNumber);
+        bb.putInt(processNum);
+    }
+
+    public BallotNum(ByteBuffer bb) {
+        this.proposalNumber = bb.getLong();
+        this.processNum = bb.getInt();
+    }
+
 }

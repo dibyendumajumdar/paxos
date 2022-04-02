@@ -13,12 +13,12 @@ public interface Ledger {
     /**
      * Records the decree written in p's ledger
      */
-    void setOutcome(long decreeNum, byte[] data);
+    void setOutcome(long decreeNum, long data);
 
     /**
      * The decree written in p's ledger or null if there is nothing written there yet
      */
-    byte[] getOutcome(long decreeNum);
+    Long getOutcome(long decreeNum);
 
     /**
      * Sets the number of the last ballot that p tried to begin
