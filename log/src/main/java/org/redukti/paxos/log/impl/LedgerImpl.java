@@ -189,6 +189,7 @@ public class LedgerImpl implements Ledger {
      */
     public static Ledger open(String basePath, String logicalName, int id)
             throws LedgerException {
+        log.info("Opening Ledger " + logicalName);
         checkBasePath(basePath, false);
         String name = getFileName(basePath, logicalName, false);
         RandomAccessFile rafile = null;
@@ -349,6 +350,7 @@ public class LedgerImpl implements Ledger {
         } catch (IOException e) {
             throw new LedgerException("Error closing ledger " + name, e);
         }
+        log.info("Ledger " + name + " closed");
     }
 
     public final synchronized void lock() {

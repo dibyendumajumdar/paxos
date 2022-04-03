@@ -48,12 +48,14 @@ public class TestLedger {
             ledger.setLastTried(secondBallot);
             ledger.setOutcome(firstDecree.decreeNum, firstDecree.value);
             ledger.setOutcome(secondDecree.decreeNum, secondDecree.value);
+            ledger.setPrevDec(secondDecree);
 
             Assert.assertEquals(secondBallot, ledger.getLastBallot());
             Assert.assertEquals(firstBallot, ledger.getPrevBallot());
             Assert.assertEquals(secondBallot, ledger.getLastBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
+            Assert.assertEquals(secondDecree, ledger.getPrevDec());
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
@@ -64,6 +66,7 @@ public class TestLedger {
             Assert.assertEquals(secondBallot, ledger.getLastBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
+            Assert.assertEquals(secondDecree, ledger.getPrevDec());
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }

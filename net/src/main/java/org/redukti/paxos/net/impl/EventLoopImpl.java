@@ -48,7 +48,7 @@ public class EventLoopImpl implements EventLoop {
 
     // TODO we need to add ability to timeout requests
     /**
-     * When a client connection send a request it can ask for a callback to be invoked
+     * When a client connection sends a request it can ask for a callback to be invoked
      * on completion of the request by the server.
      */
     ConcurrentHashMap<CorrelationId, ResponseHandler> pendingRequests = new ConcurrentHashMap<>();
@@ -59,23 +59,42 @@ public class EventLoopImpl implements EventLoop {
         }
         catch (Exception e) {
             errored = true;
-            throw new NetException("", e);
+            throw new NetException("Error opening selector", e);
         }
         opened = true;
     }
 
+    /**
+     * Start operation to connect to another server, if listener is supplied it will be invoked
+     * when connection is successful or fails.
+     *
+     * @param address Remote server address
+     * @param port remote server port
+     * @param connectionListener Listener to invoke on completion
+     */
     @Override
-    public Connection clientConnection(String address, int port, Duration timeout) {
-        SocketChannel channel = NIOUtil.getSocketChannel(address, port);
-        ConnectionImpl connection = new ConnectionImpl(connId.incrementAndGet(), this, channel);
+    public Connection clientConnection(String address, int port, ConnectionListener connectionListener) {
+        int id = connId.incrementAndGet();
+        ConnectionImpl connection = null;
         try {
+            SocketChannel channel = NIOUtil.getSocketChannel(address, port);
+            connection = new ConnectionImpl(id, this, channel, connectionListener);
             SelectionKey key = connection.socketChannel.register(this.selector, SelectionKey.OP_CONNECT);
             key.attach(connection);
         }
         catch (Exception e) {
-            throw new NetException("", e);
+            informConnectionListener(connectionListener, false);
+            if (connection != null)
+                connection.setErrored();
+            throw new NetException("Failed to create channel for connection to " + address + ":" + port, e);
         }
         return connection;
+    }
+
+    private void informConnectionListener(ConnectionListener connectionListener, boolean success) {
+        if (connectionListener == null)
+            return;
+        clientExecutor.execute(new ConnectionListenerRunnable(connectionListener, success));
     }
 
     @Override
@@ -107,10 +126,11 @@ public class EventLoopImpl implements EventLoop {
             throw new NetException("The EventLoop is in an error state");
         }
         if (!opened || stop) {
-            return;
+            throw new NetException("The EventLoop is not open or shutting down");
         }
         for (SelectionKey key : selector.keys()) {
             if (!key.isValid()) {
+                // TODO do we need to call a listener?
                 if (key.attachment() != null)
                     key.attach(null);
                 continue;
@@ -129,15 +149,15 @@ public class EventLoopImpl implements EventLoop {
                  */
                 key.cancel();
                 NIOUtil.close(key.channel());
+                // TODO do we need to call a listener?
                 key.attach(null);
                 continue;
             }
-            if (handler.isWritable()) {
-                key.interestOps(SelectionKey.OP_WRITE);
-            } else if (handler.socketChannel.isConnectionPending()) {
+            if (handler.socketChannel.isConnectionPending()) {
                 key.interestOps(SelectionKey.OP_CONNECT);
-            }
-            else {
+            } else if (handler.isWritePending()) {
+                key.interestOps(SelectionKey.OP_WRITE);
+            } else {
                 key.interestOps(SelectionKey.OP_READ);
             }
         }
@@ -149,7 +169,7 @@ public class EventLoopImpl implements EventLoop {
         } catch (IOException e) {
             errored = true;
             log.error("Error when selecting events", e);
-            throw new NetException("", e);
+            throw new NetException("Error when selecting events", e);
         }
         Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
         while (iter.hasNext()) {
@@ -172,16 +192,21 @@ public class EventLoopImpl implements EventLoop {
     }
 
     private void handleConnect(SelectionKey key) {
+        ConnectionImpl connection = (ConnectionImpl) key.attachment();
         SocketChannel channel = (SocketChannel) key.channel();
         try {
             boolean isConnected = channel.finishConnect();
             if (isConnected) {
                 key.interestOps(SelectionKey.OP_READ);
+                informConnectionListener(connection.connectionListener, true);
             }
-        } catch (IOException e) {
-            ConnectionImpl connection = (ConnectionImpl) key.attachment();
+            else {
+                informConnectionListener(connection.connectionListener, false);
+            }
+        } catch (Exception e) {
             connection.setErrored();
-            log.error("Error occurred when completing connection " + connection, e);
+            log.error("Error occurred when completing connection " + connection, e.getMessage());
+            informConnectionListener(connection.connectionListener, false);
         }
     }
 
@@ -206,10 +231,10 @@ public class EventLoopImpl implements EventLoop {
             socketChannel.configureBlocking(false);
             channelKey = socketChannel.register(this.selector,
                     SelectionKey.OP_READ);
-            ConnectionImpl connection = new ConnectionImpl(connId.incrementAndGet(), this, socketChannel);
+            ConnectionImpl connection = new ConnectionImpl(connId.incrementAndGet(), this, socketChannel, null);
             channelKey.attach(connection);
             log.info("Accepted connection " + connection);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Error when accepting connection", e);
             /*
              * If we failed to accept a new channel, we can still continue serving
@@ -262,6 +287,30 @@ public class EventLoopImpl implements EventLoop {
         opened = false;
         executor.shutdown();
         clientExecutor.shutdown();
+    }
+
+    static final class ConnectionListenerRunnable implements Runnable {
+        final ConnectionListener listener;
+        final boolean success;
+
+        public ConnectionListenerRunnable(ConnectionListener listener, boolean success) {
+            this.listener = listener;
+            this.success = success;
+        }
+
+
+        @Override
+        public void run() {
+            try {
+                if (success)
+                    listener.onConnectionSuccess();
+                else
+                    listener.onConnectionFailed();
+            }
+            catch (Throwable t) {
+                // ignored
+            }
+        }
     }
 
     /**

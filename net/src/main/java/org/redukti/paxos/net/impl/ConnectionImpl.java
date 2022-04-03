@@ -5,6 +5,7 @@
 package org.redukti.paxos.net.impl;
 
 import org.redukti.paxos.net.api.Connection;
+import org.redukti.paxos.net.api.ConnectionListener;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
 
@@ -17,11 +18,13 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
 
     final int id;
     final AtomicInteger requestId = new AtomicInteger(0);
+    final ConnectionListener connectionListener;
 
-    public ConnectionImpl(int id, EventLoopImpl eventLoop, SocketChannel socketChannel) {
+    public ConnectionImpl(int id, EventLoopImpl eventLoop, SocketChannel socketChannel, ConnectionListener listener) {
         super(eventLoop);
         this.id = id;
         this.socketChannel = socketChannel;
+        this.connectionListener = listener;
     }
 
     @Override

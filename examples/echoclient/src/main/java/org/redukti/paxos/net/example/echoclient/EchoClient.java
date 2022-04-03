@@ -19,7 +19,7 @@ public class EchoClient implements ResponseHandler {
         try (EventLoopImpl eventLoop = new EventLoopImpl()) {
 
             //eventLoop.start("localhost", 9001, m);
-            Connection connection = eventLoop.clientConnection("localhost", 9001, Duration.ofSeconds(1));
+            Connection connection = eventLoop.clientConnection("localhost", 9001, null);
 
             eventLoop.select();
             eventLoop.select();

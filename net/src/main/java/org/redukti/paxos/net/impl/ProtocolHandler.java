@@ -265,7 +265,7 @@ public abstract class ProtocolHandler {
     /**
      * Checks whether there are queued requests to be written
      */
-    synchronized boolean isWritable() {
+    synchronized boolean isWritePending() {
         return writeQueue.size() > 0;
     }
 
