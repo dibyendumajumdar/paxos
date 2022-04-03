@@ -11,8 +11,8 @@ public class BallotNum implements Comparable<BallotNum> {
 
     static final BallotNum MINUS_INFINITY = new BallotNum(-1L,0);
 
-    final long proposalNumber;
-    final int processNum;
+    public final long proposalNumber;
+    public final int processNum;
 
     public BallotNum(long proposalNumber, int processNum) {
         this.proposalNumber = proposalNumber;

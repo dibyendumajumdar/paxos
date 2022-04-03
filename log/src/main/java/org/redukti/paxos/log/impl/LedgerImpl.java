@@ -20,6 +20,7 @@ public class LedgerImpl implements Ledger {
 
     final static Logger log = LoggerFactory.getLogger(LedgerImpl.class);
     public static final int PAGE_SIZE = 8 * 1024;
+    final static int VALUE_SIZE = Long.BYTES + Byte.BYTES;
 
     /**
      * The underlying file object.
@@ -157,9 +158,7 @@ public class LedgerImpl implements Ledger {
      * opened in read/write mode.
      */
     public static Ledger createIfNotExisting(String basePath, String logicalName, int id) {
-        if (log.isDebugEnabled()) {
-            log.debug("Creating Ledger " + logicalName);
-        }
+        log.info("Creating Ledger " + logicalName + " in " + basePath);
         checkBasePath(basePath, true);
         String name = getFileName(basePath, logicalName, true);
         RandomAccessFile rafile;
@@ -225,7 +224,7 @@ public class LedgerImpl implements Ledger {
     /* (non-Javadoc)
      * @see org.simpledbm.rss.api.st.StorageContainerFactory#exists(java.lang.String)
      */
-    public boolean exists(String basePath, String logicalName) {
+    public static boolean exists(String basePath, String logicalName) {
         checkBasePath(basePath, false);
         String name = getFileName(basePath, logicalName, false);
         File file = new File(name);
@@ -343,7 +342,7 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    public final synchronized void close() {
+    public final synchronized void close() throws LedgerException {
         isValid();
         try {
             file.close();
@@ -388,17 +387,19 @@ public class LedgerImpl implements Ledger {
     long getOffsetOf(long decreeNum) {
         if (decreeNum < 0)
             throw new IllegalArgumentException("decree number cannot be < 0");
-        return PAGE_SIZE+decreeNum*Long.BYTES;
+        return PAGE_SIZE+decreeNum*(VALUE_SIZE);
     }
 
     @Override
     public void setOutcome(long decreeNum, long data) {
         long offset = getOffsetOf(decreeNum);
         extend(offset);
-        byte[] bytes = new byte[Long.BYTES];
+        byte[] bytes = new byte[VALUE_SIZE];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
+        bb.put((byte)42);
         bb.putLong(data);
         write(offset, bytes, 0, bytes.length);
+        flush();
     }
 
     private void extend(long offset) {
@@ -428,15 +429,18 @@ public class LedgerImpl implements Ledger {
         long offset = getOffsetOf(decreeNum);
         try {
             long length = file.length();
-            if (length < offset+Long.BYTES)
+            if (length < offset+VALUE_SIZE)
                 return null;
         }
         catch (IOException e) {
             throw new LedgerException("Cannot get length of ledger " + name, e);
         }
-        byte[] bytes = new byte[Long.BYTES];
+        byte[] bytes = new byte[VALUE_SIZE];
         read(offset, bytes, 0, bytes.length);
         ByteBuffer bb = ByteBuffer.wrap(bytes);
+        byte check = bb.get();
+        if (check != 42)
+            return null;
         return bb.getLong();
     }
 

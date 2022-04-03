@@ -4,7 +4,7 @@
  */
 package org.redukti.paxos.log.api;
 
-public interface Ledger {
+public interface Ledger extends AutoCloseable {
 
     // decree num is equivalent to the log entry id
     // ballot num is the proposal number (made unique by proposer id),
