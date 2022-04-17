@@ -7,6 +7,7 @@ package org.redukti.paxos.net.impl;
 import org.redukti.paxos.net.api.NetException;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -159,6 +160,14 @@ public abstract class ProtocolHandler {
                     readPayload = null;
                 }
             }
+        } catch (SocketException e) {
+            EventLoopImpl.log.error("Error in read operation", e);
+            if (e.getMessage().equals("Connection reset")) {
+                connectionReset();
+            }
+            else {
+                failed();
+            }
         } catch (IOException e) {
             EventLoopImpl.log.error("Error in read operation", e);
             failed();
@@ -175,6 +184,10 @@ public abstract class ProtocolHandler {
 
     boolean isOkay() {
         return okay;
+    }
+
+    void connectionReset() {
+        okay = false;
     }
 
     /**

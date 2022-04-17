@@ -48,6 +48,18 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
     }
 
     @Override
+    void connectionReset() {
+        super.connectionReset();
+        if (connectionListener != null) {
+            try {
+                connectionListener.onConnectionFailed();
+            }
+            catch (Exception e) {
+            }
+        }
+    }
+
+    @Override
     public String toString() {
         return "Connection={" +
                 "id=" + id +
