@@ -1,5 +1,7 @@
 package org.redukti.paxos.basic;
 
+import org.redukti.paxos.log.api.Ledger;
+import org.redukti.paxos.log.impl.LedgerImpl;
 import org.redukti.paxos.net.api.EventLoop;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
@@ -12,9 +14,9 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class Process implements RequestHandler {
+public class BasicPaxosProcess implements RequestHandler {
 
-    final static Logger log = LoggerFactory.getLogger(Process.class);
+    final static Logger log = LoggerFactory.getLogger(BasicPaxosProcess.class);
 
     int myId = -1;
     ProcessDef myDef;
@@ -25,6 +27,9 @@ public class Process implements RequestHandler {
 
     ScheduledExecutorService scheduledExecutorService;
     EventLoop eventLoop;
+
+    Ledger ledger;
+    String ledgerName;
 
     void parseArguments(String[] args) {
         String idStr = null;
@@ -85,6 +90,7 @@ public class Process implements RequestHandler {
         }
         else {
             myDef = new ProcessDef(allDefs.get(myId).address, allDefs.get(myId).port);
+            ledgerName = "ledger_" + myId + ".log";
         }
         return result;
     }
@@ -94,6 +100,12 @@ public class Process implements RequestHandler {
         eventLoop = new EventLoopImpl();
         eventLoop.startServerChannel(myDef.address, myDef.port, this);
         startConnections();
+        if (LedgerImpl.exists(logPath, ledgerName)) {
+            ledger = LedgerImpl.open(logPath, ledgerName, myId);
+        }
+        else {
+            ledger = LedgerImpl.createIfNotExisting(logPath, ledgerName, myId);
+        }
     }
 
     void startConnections() {
@@ -111,7 +123,7 @@ public class Process implements RequestHandler {
 
     public static void main(String[] args) {
         try {
-            Process me = new Process();
+            BasicPaxosProcess me = new BasicPaxosProcess();
             me.parseArguments(args);
             if (!me.checkArgs()) {
                 System.exit(1);
