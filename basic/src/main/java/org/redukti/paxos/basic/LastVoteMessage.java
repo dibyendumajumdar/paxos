@@ -37,4 +37,13 @@ public class LastVoteMessage implements PaxosMessage {
     public int getCode() {
         return PaxosMessages.LAST_VOTE_MESSAGE;
     }
+
+    @Override
+    public String toString() {
+        return "LastVoteMessage{" +
+                "p=" + p +
+                ", vBal=" + vBal +
+                ", vDec=" + vDec +
+                '}';
+    }
 }

@@ -26,6 +26,6 @@ public class SuccessMessage implements PaxosMessage {
 
     @Override
     public int getCode() {
-        return 0;
+        return PaxosMessages.SUCCESS_MESSAGE;
     }
 }

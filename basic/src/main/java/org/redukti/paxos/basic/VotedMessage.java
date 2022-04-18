@@ -32,4 +32,12 @@ public class VotedMessage implements PaxosMessage {
     public int getCode() {
         return PaxosMessages.VOTED_MESSAGE;
     }
+
+    @Override
+    public String toString() {
+        return "VotedMessage{" +
+                "prevBal=" + prevBal +
+                ", owner=" + owner +
+                '}';
+    }
 }

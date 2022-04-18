@@ -5,6 +5,8 @@ import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -12,23 +14,28 @@ import java.util.stream.Collectors;
 
 public class ThisPaxosParticipant extends PaxosParticipant implements RequestHandler {
 
-    int id;
-    Ledger ledger;
+    final static Logger log = LoggerFactory.getLogger(ThisPaxosParticipant.class);
+
+    final int id;
+    final Ledger ledger;
 
     // Status of the process, initial IDLE
-    Status status;
+    Status status = Status.IDLE;
     // If status == POLLING, then the set of quorum members from whom
     // we have received Voted messages in the current ballot; otherwise, meaningless.
-    Set<PaxosParticipant> voters;
+    Set<PaxosParticipant> voters = new LinkedHashSet<>();
     // quorum
     Set<PaxosParticipant> quorum = new LinkedHashSet<>();
     Set<Vote> prevVotes = new LinkedHashSet<>();
     Set<PaxosParticipant> all = new LinkedHashSet<>();
     Decree decree = null;
 
-    BasicPaxosProcess process;
+    final BasicPaxosProcess process;
 
     public ThisPaxosParticipant(BasicPaxosProcess process) {
+        this.process = process;
+        this.ledger = process.ledger;
+        this.id = process.myId;
         all.add(this);
     }
 
@@ -86,6 +93,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     @Override
     public synchronized void handleRequest(Message request, Message response) {
         PaxosMessage pm = PaxosMessages.parseMessage(request.getData());
+        log.info("Received " + pm.toString());
         if (pm instanceof NextBallotMessage) {
             receiveNextBallot((NextBallotMessage) pm);
         }
@@ -100,6 +108,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         else if (pm instanceof SuccessMessage) {
             receiveSuccess((SuccessMessage) pm);
+        }
+        else {
+            log.error("Unknown message " + pm);
         }
     }
 

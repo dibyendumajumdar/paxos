@@ -29,4 +29,10 @@ public class NextBallotMessage implements PaxosMessage {
         return PaxosMessages.NEXT_BALLOT_MESSAGE;
     }
 
+    @Override
+    public String toString() {
+        return "NextBallotMessage{" +
+                "b=" + b +
+                '}';
+    }
 }

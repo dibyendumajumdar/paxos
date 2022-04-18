@@ -3,15 +3,12 @@ package org.redukti.paxos.basic;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.log.impl.LedgerImpl;
 import org.redukti.paxos.net.api.EventLoop;
-import org.redukti.paxos.net.api.Message;
-import org.redukti.paxos.net.api.RequestHandler;
 import org.redukti.paxos.net.impl.EventLoopImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -22,6 +19,7 @@ public class BasicPaxosProcess {
     int myId = -1;
     ProcessDef myDef;
     String logPath;
+    boolean startBallot = false;
 
     List<ProcessChannel> remoteProcesses = new ArrayList<>();
     List<ProcessDef> allDefs = new ArrayList<>();
@@ -69,6 +67,10 @@ public class BasicPaxosProcess {
                     }
                     break;
                 }
+                case "--start-ballot": {
+                    startBallot = true;
+                    break;
+                }
             }
         }
     }
@@ -101,16 +103,16 @@ public class BasicPaxosProcess {
     void startServer() {
         scheduledExecutorService = Executors.newScheduledThreadPool(1);
         eventLoop = new EventLoopImpl();
-        me = new ThisPaxosParticipant(this);
-        eventLoop.startServerChannel(myDef.address, myDef.port, me);
-        startConnections();
-        me.addRemotes();
         if (LedgerImpl.exists(logPath, ledgerName)) {
             ledger = LedgerImpl.open(logPath, ledgerName, myId);
         }
         else {
             ledger = LedgerImpl.createIfNotExisting(logPath, ledgerName, myId);
         }
+        me = new ThisPaxosParticipant(this);
+        eventLoop.startServerChannel(myDef.address, myDef.port, me);
+        startConnections();
+        me.addRemotes();
     }
 
     void startConnections() {
@@ -126,7 +128,16 @@ public class BasicPaxosProcess {
         }
     }
 
+    boolean remotesConnected() {
+        for (ProcessChannel pc: remoteProcesses) {
+            if (!pc.connection.isConnected())
+                return false;
+        }
+        return true;
+    }
+
     public static void main(String[] args) {
+        boolean balloted = false;
         try {
             BasicPaxosProcess me = new BasicPaxosProcess();
             me.parseArguments(args);
@@ -137,6 +148,10 @@ public class BasicPaxosProcess {
             me.startServer();
             while (true) {
                 me.eventLoop.select();
+                if (me.remotesConnected() && me.startBallot && !balloted) {
+                    balloted = true;
+                    me.me.tryNewBallot();
+                }
             }
         }
         catch (Exception e) {

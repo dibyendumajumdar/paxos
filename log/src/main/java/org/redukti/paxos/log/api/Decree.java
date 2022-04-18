@@ -54,4 +54,12 @@ public class Decree implements Comparable<Decree> {
     public boolean isNull() {
         return decreeNum == -1;
     }
+
+    @Override
+    public String toString() {
+        return "Decree{" +
+                "decreeNum=" + decreeNum +
+                ", value=" + value +
+                '}';
+    }
 }

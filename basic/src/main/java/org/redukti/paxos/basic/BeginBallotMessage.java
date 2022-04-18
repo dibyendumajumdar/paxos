@@ -33,4 +33,12 @@ public class BeginBallotMessage implements PaxosMessage {
     public int getCode() {
         return PaxosMessages.BEGIN_BALLOT_MESSAGE;
     }
+
+    @Override
+    public String toString() {
+        return "BeginBallotMessage{" +
+                "b=" + b +
+                ", decree=" + decree +
+                '}';
+    }
 }
