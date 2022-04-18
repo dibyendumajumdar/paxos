@@ -6,6 +6,7 @@ import org.redukti.paxos.net.api.EventLoop;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -41,5 +42,18 @@ public class ProcessChannel implements ConnectionListener {
     @Override
     public void onConnectionSuccess() {
         log.info("Connected to remote process " + def);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ProcessChannel that = (ProcessChannel) o;
+        return id == that.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

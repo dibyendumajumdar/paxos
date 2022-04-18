@@ -33,7 +33,7 @@ public class TestLedger {
         }
         checkSize(new File(basePath,"l1"), 1);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(NEG_INF, ledger.getLastBallot());
+            Assert.assertEquals(NEG_INF, ledger.getNextBallot());
             Assert.assertEquals(NEG_INF, ledger.getLastTried());
             Assert.assertEquals(NEG_INF, ledger.getPrevBallot());
             Assert.assertEquals(NULL_DECREE, ledger.getPrevDec());
@@ -43,16 +43,16 @@ public class TestLedger {
         BallotNum secondBallot = new BallotNum(2, ID);
         Decree secondDecree = new Decree(secondBallot.proposalNumber, 103);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            ledger.setLastBallot(secondBallot);
+            ledger.setNextBallot(secondBallot);
             ledger.setPrevBallot(firstBallot);
             ledger.setLastTried(secondBallot);
             ledger.setOutcome(firstDecree.decreeNum, firstDecree.value);
             ledger.setOutcome(secondDecree.decreeNum, secondDecree.value);
             ledger.setPrevDec(secondDecree);
 
-            Assert.assertEquals(secondBallot, ledger.getLastBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getLastBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
             Assert.assertEquals(secondDecree, ledger.getPrevDec());
@@ -61,9 +61,9 @@ public class TestLedger {
         }
         checkSize(new File(basePath,"l1"), 2);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(secondBallot, ledger.getLastBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getLastBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
             Assert.assertEquals(secondDecree, ledger.getPrevDec());

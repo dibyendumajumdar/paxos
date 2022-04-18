@@ -480,13 +480,13 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setLastBallot(BallotNum ballot) {
+    public void setNextBallot(BallotNum ballot) {
         header.lastBallot = ballot;
         writeHeader();
     }
 
     @Override
-    public BallotNum getLastBallot() {
+    public BallotNum getNextBallot() {
         return header.lastBallot;
     }
 }

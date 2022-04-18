@@ -11,10 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class BasicPaxosProcess implements RequestHandler {
+public class BasicPaxosProcess {
 
     final static Logger log = LoggerFactory.getLogger(BasicPaxosProcess.class);
 
@@ -30,6 +31,8 @@ public class BasicPaxosProcess implements RequestHandler {
 
     Ledger ledger;
     String ledgerName;
+
+    ThisPaxosParticipant me;
 
     void parseArguments(String[] args) {
         String idStr = null;
@@ -98,8 +101,10 @@ public class BasicPaxosProcess implements RequestHandler {
     void startServer() {
         scheduledExecutorService = Executors.newScheduledThreadPool(1);
         eventLoop = new EventLoopImpl();
-        eventLoop.startServerChannel(myDef.address, myDef.port, this);
+        me = new ThisPaxosParticipant(this);
+        eventLoop.startServerChannel(myDef.address, myDef.port, me);
         startConnections();
+        me.addRemotes();
         if (LedgerImpl.exists(logPath, ledgerName)) {
             ledger = LedgerImpl.open(logPath, ledgerName, myId);
         }
@@ -140,8 +145,4 @@ public class BasicPaxosProcess implements RequestHandler {
         }
     }
 
-    @Override
-    public void handleRequest(Message request, Message response) {
-        
-    }
 }

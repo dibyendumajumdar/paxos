@@ -53,11 +53,11 @@ public interface Ledger extends AutoCloseable {
     /**
      * The number of the last ballot in which p agreed to participate
      */
-    void setLastBallot(BallotNum ballot);
+    void setNextBallot(BallotNum ballot);
 
     /**
      * he number of the last ballot in which p agreed to participate, or
      * BallotNum.MINUS_INFINITY if he has never agreed to participate in a ballot.
      */
-    BallotNum getLastBallot();
+    BallotNum getNextBallot();
 }

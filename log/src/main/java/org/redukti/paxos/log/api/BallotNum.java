@@ -63,4 +63,8 @@ public class BallotNum implements Comparable<BallotNum> {
         this.processNum = bb.getInt();
     }
 
+    public BallotNum increment() {
+        return new BallotNum(proposalNumber+1, processNum);
+    }
+
 }
