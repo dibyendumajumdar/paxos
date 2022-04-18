@@ -18,7 +18,7 @@ public class NextBallotMessage implements PaxosMessage {
     @Override
     public ByteBuffer serialize() {
         ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + BallotNum.size());
-        bb.putShort((short) PaxosMessages.NEXT_BALLOT_MESSAGE);
+        bb.putShort((short) getCode());
         b.store(bb);
         bb.flip();
         return bb;

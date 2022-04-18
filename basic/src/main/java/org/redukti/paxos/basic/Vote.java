@@ -3,6 +3,7 @@ package org.redukti.paxos.basic;
 import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 
+import java.nio.ByteBuffer;
 import java.util.Objects;
 
 public class Vote implements Comparable<Vote> {
@@ -14,6 +15,22 @@ public class Vote implements Comparable<Vote> {
         this.p = p;
         this.b = b;
         this.decree = decree;
+    }
+
+    public Vote(ByteBuffer bb) {
+        this.p = bb.get();
+        this.b = new BallotNum(bb);
+        this.decree = new Decree(bb);
+    }
+
+    public void store(ByteBuffer bb) {
+        bb.put((byte) p);
+        b.store(bb);
+        decree.store(bb);
+    }
+
+    public static int size() {
+        return Byte.BYTES + BallotNum.size() + Decree.size();
     }
 
     @Override
@@ -32,5 +49,14 @@ public class Vote implements Comparable<Vote> {
     @Override
     public int compareTo(Vote o) {
         return b.compareTo(o.b);
+    }
+
+    @Override
+    public String toString() {
+        return "Vote{" +
+                "p=" + p +
+                ", b=" + b +
+                ", decree=" + decree +
+                '}';
     }
 }

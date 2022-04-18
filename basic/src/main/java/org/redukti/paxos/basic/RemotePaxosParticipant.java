@@ -28,8 +28,8 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
-    public void sendLastVoteMessage(int p, BallotNum vBal, Decree vDec) {
-        remote.connection.submit(new LastVoteMessage(p, vBal, vDec).serialize(), this, Duration.ofSeconds(5));
+    public void sendLastVoteMessage(BallotNum b, Vote v) {
+        remote.connection.submit(new LastVoteMessage(b, v).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override

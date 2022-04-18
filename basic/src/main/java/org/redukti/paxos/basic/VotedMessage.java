@@ -6,23 +6,24 @@ import java.nio.ByteBuffer;
 
 public class VotedMessage implements PaxosMessage {
 
-    final BallotNum prevBal;
+    final BallotNum b;
     final int owner;
 
     public VotedMessage(ByteBuffer bb) {
-        this.prevBal = new BallotNum(bb);
+        this.b = new BallotNum(bb);
         this.owner = bb.get();
     }
 
-    public VotedMessage(BallotNum prevBal, int id) {
-        this.prevBal = prevBal;
+    public VotedMessage(BallotNum b, int id) {
+        this.b = b;
         this.owner = id;
     }
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(BallotNum.size()+Byte.BYTES);
-        prevBal.store(bb);
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+BallotNum.size()+Byte.BYTES);
+        bb.putShort((short)getCode());
+        b.store(bb);
         bb.put((byte) owner);
         bb.flip();
         return bb;
@@ -36,7 +37,7 @@ public class VotedMessage implements PaxosMessage {
     @Override
     public String toString() {
         return "VotedMessage{" +
-                "prevBal=" + prevBal +
+                "prevBal=" + b +
                 ", owner=" + owner +
                 '}';
     }

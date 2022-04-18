@@ -71,8 +71,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendLastVoteMessage(int p, BallotNum vBal, Decree vDec) {
-        receiveLastVote(new LastVoteMessage(p, vBal, vDec));
+    public void sendLastVoteMessage(BallotNum b, Vote v) {
+        receiveLastVote(new LastVoteMessage(b, v));
     }
 
     @Override
@@ -132,7 +132,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (nextBal.compareTo(prevBal) > 0) {
             int owner = b.processNum;
             PaxosParticipant participant = findParticipant(owner);
-            participant.sendLastVoteMessage(id, prevBal, ledger.getPrevDec());
+            participant.sendLastVoteMessage(b, new Vote(id, prevBal, ledger.getPrevDec()));
         }
     }
 
@@ -148,10 +148,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // If b = lastTried [p] and status[p] = trying, then
     // – Set prevVotes[p] to the union of its original value and {v}.
     void receiveLastVote(LastVoteMessage lv) {
-        BallotNum b = lv.vBal;
+        BallotNum b = lv.b;
         BallotNum lastTried = ledger.getLastTried();
         if (b.equals(lastTried) && status == Status.TRYING) {
-            prevVotes.add(new Vote(lv.p, lv.vBal, lv.vDec));
+            prevVotes.add(lv.v);
             if (prevVotes.size() >= 2) {
                 startPolling();
             }
@@ -160,7 +160,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void startPolling() {
         status = Status.POLLING;
-        quorum = prevVotes.stream().map(v -> findParticipant(v.b.processNum)).collect(Collectors.toSet());
+        quorum = prevVotes.stream().map(v -> findParticipant(v.p)).collect(Collectors.toSet());
         voters.clear();
         Vote maxVote = prevVotes.stream().sorted((a,b) -> b.compareTo(a)).findFirst().get();
         Decree maxVoteDecree = maxVote.decree;
@@ -188,18 +188,15 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             if (b.compareTo(prevBal) > 0) {
                 ledger.setPrevBallot(b);
                 ledger.setPrevDec(pm.decree);
-                prevBal = b;
-            }
-            if (!prevBal.isNull()) {
-                PaxosParticipant p = findParticipant(prevBal.processNum);
-                p.sendVoted(prevBal, id);
+                PaxosParticipant p = findParticipant(b.processNum);
+                p.sendVoted(b, id);
             }
         }
     }
 
     void receiveVoted(VotedMessage vm) {
         BallotNum lastTried = ledger.getLastTried();
-        BallotNum b = vm.prevBal;
+        BallotNum b = vm.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
             PaxosParticipant q = findParticipant(vm.owner);
             voters.add(q);

@@ -18,7 +18,8 @@ public class SuccessMessage implements PaxosMessage {
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(Decree.size());
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+Decree.size());
+        bb.putShort((short)getCode());
         decree.store(bb);
         bb.flip();
         return bb;
@@ -27,5 +28,12 @@ public class SuccessMessage implements PaxosMessage {
     @Override
     public int getCode() {
         return PaxosMessages.SUCCESS_MESSAGE;
+    }
+
+    @Override
+    public String toString() {
+        return "SuccessMessage{" +
+                "decree=" + decree +
+                '}';
     }
 }

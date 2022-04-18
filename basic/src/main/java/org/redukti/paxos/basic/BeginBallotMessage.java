@@ -22,7 +22,8 @@ public class BeginBallotMessage implements PaxosMessage {
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(BallotNum.size()+Decree.size());
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+BallotNum.size()+Decree.size());
+        bb.putShort((short)getCode());
         b.store(bb);
         decree.store(bb);
         bb.flip();
