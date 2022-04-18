@@ -4,14 +4,14 @@ import org.redukti.paxos.log.api.BallotNum;
 
 import java.nio.ByteBuffer;
 
-public class NextBallotPaxosMessage implements PaxosMessage {
+public class NextBallotMessage implements PaxosMessage {
     final BallotNum b;
 
-    public NextBallotPaxosMessage(BallotNum b) {
+    public NextBallotMessage(BallotNum b) {
         this.b = b;
     }
 
-    public NextBallotPaxosMessage(ByteBuffer bb) {
+    public NextBallotMessage(ByteBuffer bb) {
         this.b = new BallotNum(bb);
     }
 

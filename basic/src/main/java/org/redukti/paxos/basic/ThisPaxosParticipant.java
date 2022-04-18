@@ -6,7 +6,6 @@ import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
 
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -54,20 +53,19 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-
-    @Override
-    public void sendNextBallot(BallotNum b) {
-        receiveNextBallot(new NextBallotPaxosMessage(b));
-    }
-
-    @Override
-    public void sendLastVoteMessage(LastVotePaxosMessage lvp) {
-        receiveLastVote(lvp);
-    }
-
     @Override
     public int getId() {
         return id;
+    }
+
+    @Override
+    public void sendNextBallot(BallotNum b) {
+        receiveNextBallot(new NextBallotMessage(b));
+    }
+
+    @Override
+    public void sendLastVoteMessage(LastVoteMessage lvp) {
+        receiveLastVote(lvp);
     }
 
     @Override
@@ -82,17 +80,17 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public void sendSuccess(Decree decree) {
-
+        receiveSuccess(new SuccessMessage(decree));
     }
 
     @Override
     public void handleRequest(Message request, Message response) {
         PaxosMessage pm = PaxosMessages.parseMessage(request.getData());
-        if (pm instanceof NextBallotPaxosMessage) {
-            receiveNextBallot((NextBallotPaxosMessage) pm);
+        if (pm instanceof NextBallotMessage) {
+            receiveNextBallot((NextBallotMessage) pm);
         }
-        else if (pm instanceof LastVotePaxosMessage) {
-            receiveLastVote((LastVotePaxosMessage) pm);
+        else if (pm instanceof LastVoteMessage) {
+            receiveLastVote((LastVoteMessage) pm);
         }
         else if (pm instanceof BeginBallotMessage) {
             receiveBeginBallot((BeginBallotMessage) pm);
@@ -112,7 +110,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // Enabled whenever nextBal[p] > prevBal [p].
     // – Send a LastVote(nextBal [p], v) message to priest owner(nextBal [p]), where
     //   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
-    void receiveNextBallot(NextBallotPaxosMessage pm) {
+    void receiveNextBallot(NextBallotMessage pm) {
         BallotNum b = pm.b;
         BallotNum nextBal = ledger.getNextBallot();
         if (b.compareTo(nextBal) >= 0) {
@@ -121,7 +119,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         BallotNum prevBal = ledger.getPrevBallot();
         if (nextBal.compareTo(prevBal) > 0) {
-            LastVotePaxosMessage lvp = new LastVotePaxosMessage(id, prevBal, ledger.getPrevDec());
+            LastVoteMessage lvp = new LastVoteMessage(id, prevBal, ledger.getPrevDec());
             int owner = b.processNum;
             PaxosParticipant participant = findParticipant(owner);
             participant.sendLastVoteMessage(lvp);
@@ -139,7 +137,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // Receive LastVote(b, v) Message
     // If b = lastTried [p] and status[p] = trying, then
     // – Set prevVotes[p] to the union of its original value and {v}.
-    void receiveLastVote(LastVotePaxosMessage lv) {
+    void receiveLastVote(LastVoteMessage lv) {
         BallotNum b = lv.vBal;
         BallotNum lastTried = ledger.getLastTried();
         if (b.equals(lastTried) && status == Status.TRYING) {

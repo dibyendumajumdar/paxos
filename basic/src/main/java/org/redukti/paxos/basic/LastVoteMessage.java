@@ -4,21 +4,20 @@ import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 
 import java.nio.ByteBuffer;
-import java.text.DecimalFormat;
 
-public class LastVotePaxosMessage implements PaxosMessage {
+public class LastVoteMessage implements PaxosMessage {
 
     int p;
     BallotNum vBal;
     Decree vDec;
 
-    public LastVotePaxosMessage(int p, BallotNum vBal, Decree vDec) {
+    public LastVoteMessage(int p, BallotNum vBal, Decree vDec) {
         this.p = p;
         this.vBal = vBal;
         this.vDec = vDec;
     }
 
-    public LastVotePaxosMessage(ByteBuffer bb) {
+    public LastVoteMessage(ByteBuffer bb) {
         this.p = bb.get();
         this.vBal = new BallotNum(bb);
         this.vDec = new Decree(bb);

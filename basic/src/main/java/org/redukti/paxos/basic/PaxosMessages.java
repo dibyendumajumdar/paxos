@@ -13,10 +13,10 @@ public class PaxosMessages {
         int messageId = bb.getShort();
         switch (messageId) {
             case NEXT_BALLOT_MESSAGE: {
-                return new NextBallotPaxosMessage(bb);
+                return new NextBallotMessage(bb);
             }
             case LAST_VOTE_MESSAGE: {
-                return new LastVotePaxosMessage(bb);
+                return new LastVoteMessage(bb);
             }
             case BEGIN_BALLOT_MESSAGE: {
                 return new BeginBallotMessage(bb);

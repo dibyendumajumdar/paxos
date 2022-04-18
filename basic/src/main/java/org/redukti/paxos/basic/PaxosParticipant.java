@@ -9,7 +9,7 @@ public abstract class PaxosParticipant {
 
     public abstract void sendNextBallot(BallotNum b);
 
-    public abstract void sendLastVoteMessage(LastVotePaxosMessage lvp);
+    public abstract void sendLastVoteMessage(LastVoteMessage lvp);
 
     public abstract void sendBeginBallot(BallotNum b, Decree decree);
 

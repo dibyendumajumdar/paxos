@@ -19,11 +19,11 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
 
     @Override
     public void sendNextBallot(BallotNum b) {
-        remote.connection.submit(new NextBallotPaxosMessage(b).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(new NextBallotMessage(b).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
-    public void sendLastVoteMessage(LastVotePaxosMessage lvp) {
+    public void sendLastVoteMessage(LastVoteMessage lvp) {
         remote.connection.submit(lvp.serialize(), this, Duration.ofSeconds(5));
     }
 
