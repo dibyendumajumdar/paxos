@@ -1,6 +1,7 @@
 package org.redukti.paxos.basic;
 
 import org.redukti.paxos.log.api.BallotNum;
+import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
 
@@ -29,6 +30,11 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     @Override
     public int getId() {
         return id;
+    }
+
+    @Override
+    public void sendBeginBallot(BallotNum b, Decree decree) {
+
     }
 
     @Override

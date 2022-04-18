@@ -50,4 +50,8 @@ public class Decree implements Comparable<Decree> {
     public int hashCode() {
         return Objects.hash(decreeNum, value);
     }
+
+    public boolean isNull() {
+        return decreeNum == -1;
+    }
 }
