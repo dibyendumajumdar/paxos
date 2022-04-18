@@ -23,7 +23,7 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
-    protected void sendLastVoteMessage(LastVotePaxosMessage lvp) {
+    public void sendLastVoteMessage(LastVotePaxosMessage lvp) {
         remote.connection.submit(lvp.serialize(), this, Duration.ofSeconds(5));
     }
 

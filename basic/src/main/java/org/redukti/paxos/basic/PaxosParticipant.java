@@ -5,11 +5,11 @@ import org.redukti.paxos.log.api.Decree;
 
 public abstract class PaxosParticipant {
 
+    public abstract int getId();
+
     public abstract void sendNextBallot(BallotNum b);
 
-    protected abstract void sendLastVoteMessage(LastVotePaxosMessage lvp);
-
-    public abstract int getId();
+    public abstract void sendLastVoteMessage(LastVotePaxosMessage lvp);
 
     public abstract void sendBeginBallot(BallotNum b, Decree decree);
 

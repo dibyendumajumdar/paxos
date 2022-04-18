@@ -61,7 +61,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    protected void sendLastVoteMessage(LastVotePaxosMessage lvp) {
+    public void sendLastVoteMessage(LastVotePaxosMessage lvp) {
         receiveLastVote(lvp);
     }
 
