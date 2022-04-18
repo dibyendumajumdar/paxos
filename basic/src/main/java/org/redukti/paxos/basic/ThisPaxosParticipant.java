@@ -16,7 +16,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     final static Logger log = LoggerFactory.getLogger(ThisPaxosParticipant.class);
 
-    final int id;
+    final int myId;
     final Ledger ledger;
 
     // Status of the process, initial IDLE
@@ -35,7 +35,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     public ThisPaxosParticipant(BasicPaxosProcess process) {
         this.process = process;
         this.ledger = process.ledger;
-        this.id = process.myId;
+        this.myId = process.myId;
         all.add(this);
     }
 
@@ -62,7 +62,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public int getId() {
-        return id;
+        return myId;
     }
 
     @Override
@@ -130,9 +130,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         BallotNum prevBal = ledger.getPrevBallot();
         if (nextBal.compareTo(prevBal) > 0) {
-            int owner = b.processNum;
-            PaxosParticipant participant = findParticipant(owner);
-            participant.sendLastVoteMessage(b, new Vote(id, prevBal, ledger.getPrevDec()));
+            int owner = b.processNum; // process that sent us NextBallotMessage
+            PaxosParticipant p = findParticipant(owner);
+            // v is the vote with the largest ballot number
+            // less than b that we have cast, or its null if we haven't yet
+            // voted in a ballot less than b.
+            Vote v = new Vote(myId, prevBal, ledger.getPrevDec());
+            p.sendLastVoteMessage(b, v);
         }
     }
 
@@ -189,7 +193,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 ledger.setPrevBallot(b);
                 ledger.setPrevDec(pm.decree);
                 PaxosParticipant p = findParticipant(b.processNum);
-                p.sendVoted(b, id);
+                p.sendVoted(b, myId);
             }
         }
     }
@@ -204,9 +208,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 Long v = ledger.getOutcome(decree.decreeNum);
                 if (v == null) {
                     ledger.setOutcome(decree.decreeNum, decree.value);
-                    for (PaxosParticipant p: all) {
-                        p.sendSuccess(new Decree(decree.decreeNum, decree.value));
-                    }
+                }
+                for (PaxosParticipant p: all) {
+                    p.sendSuccess(new Decree(decree.decreeNum, decree.value));
                 }
             }
         }
