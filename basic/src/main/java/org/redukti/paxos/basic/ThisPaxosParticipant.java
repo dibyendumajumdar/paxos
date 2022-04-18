@@ -32,13 +32,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.add(this);
     }
 
-    public void addRemotes() {
+    public synchronized void addRemotes() {
         for (ProcessChannel p: process.remoteProcesses) {
             all.add(new RemotePaxosParticipant(p.id, p));
         }
     }
 
-    public void tryNewBallot() {
+    public synchronized void tryNewBallot() {
         BallotNum b = ledger.getLastTried();
         b = b.increment();
         ledger.setLastTried(b);
@@ -64,8 +64,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendLastVoteMessage(LastVoteMessage lvp) {
-        receiveLastVote(lvp);
+    public void sendLastVoteMessage(int p, BallotNum vBal, Decree vDec) {
+        receiveLastVote(new LastVoteMessage(p, vBal, vDec));
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void handleRequest(Message request, Message response) {
+    public synchronized void handleRequest(Message request, Message response) {
         PaxosMessage pm = PaxosMessages.parseMessage(request.getData());
         if (pm instanceof NextBallotMessage) {
             receiveNextBallot((NextBallotMessage) pm);
@@ -119,10 +119,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         BallotNum prevBal = ledger.getPrevBallot();
         if (nextBal.compareTo(prevBal) > 0) {
-            LastVoteMessage lvp = new LastVoteMessage(id, prevBal, ledger.getPrevDec());
             int owner = b.processNum;
             PaxosParticipant participant = findParticipant(owner);
-            participant.sendLastVoteMessage(lvp);
+            participant.sendLastVoteMessage(id, prevBal, ledger.getPrevDec());
         }
     }
 
@@ -159,13 +158,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             decree = new Decree(0, 42);
         else
             decree = maxVoteDecree;
-
         beginBallot();
     }
 
     void beginBallot() {
         assert status == Status.POLLING;
-
         BallotNum b = ledger.getLastTried();
         for (PaxosParticipant p: quorum) {
             p.sendBeginBallot(b, decree);

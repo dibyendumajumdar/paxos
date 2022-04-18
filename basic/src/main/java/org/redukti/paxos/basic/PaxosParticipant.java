@@ -11,7 +11,7 @@ public abstract class PaxosParticipant {
     public abstract void sendNextBallot(BallotNum b);
 
     // equivalent to phase 1 (b) prepare accepted message
-    public abstract void sendLastVoteMessage(LastVoteMessage lvp);
+    public abstract void sendLastVoteMessage(int p, BallotNum vBal, Decree vDec);
 
     // equivalent to phase 2 (a) accept request
     public abstract void sendBeginBallot(BallotNum b, Decree decree);

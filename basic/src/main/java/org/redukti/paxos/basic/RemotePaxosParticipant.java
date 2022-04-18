@@ -18,18 +18,18 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
+    public int getId() {
+        return id;
+    }
+
+    @Override
     public void sendNextBallot(BallotNum b) {
         remote.connection.submit(new NextBallotMessage(b).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
-    public void sendLastVoteMessage(LastVoteMessage lvp) {
-        remote.connection.submit(lvp.serialize(), this, Duration.ofSeconds(5));
-    }
-
-    @Override
-    public int getId() {
-        return id;
+    public void sendLastVoteMessage(int p, BallotNum vBal, Decree vDec) {
+        remote.connection.submit(new LastVoteMessage(p, vBal, vDec).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
