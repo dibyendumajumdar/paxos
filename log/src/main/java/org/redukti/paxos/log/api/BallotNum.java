@@ -67,4 +67,7 @@ public class BallotNum implements Comparable<BallotNum> {
         return new BallotNum(proposalNumber+1, processNum);
     }
 
+    public boolean isNull() {
+        return proposalNumber < 0;
+    }
 }

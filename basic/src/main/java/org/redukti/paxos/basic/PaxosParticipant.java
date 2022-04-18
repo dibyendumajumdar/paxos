@@ -12,4 +12,8 @@ public abstract class PaxosParticipant {
     public abstract int getId();
 
     public abstract void sendBeginBallot(BallotNum b, Decree decree);
+
+    public abstract void sendVoted(BallotNum prevBal, int id);
+
+    public abstract void sendSuccess(Decree decree);
 }

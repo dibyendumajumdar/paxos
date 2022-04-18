@@ -24,17 +24,18 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // quorum
     Set<PaxosParticipant> quorum = new LinkedHashSet<>();
     Set<Vote> prevVotes = new LinkedHashSet<>();
+    Set<PaxosParticipant> all = new LinkedHashSet<>();
     Decree decree = null;
 
     BasicPaxosProcess process;
 
     public ThisPaxosParticipant(BasicPaxosProcess process) {
-        quorum.add(this);
+        all.add(this);
     }
 
     public void addRemotes() {
         for (ProcessChannel p: process.remoteProcesses) {
-            quorum.add(new RemotePaxosParticipant(p.id, p));
+            all.add(new RemotePaxosParticipant(p.id, p));
         }
     }
 
@@ -48,7 +49,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void nextBallot(BallotNum b) {
-        for (PaxosParticipant p: quorum) {
+        for (PaxosParticipant p: all) {
             p.sendNextBallot(b);
         }
     }
@@ -71,6 +72,16 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public void sendBeginBallot(BallotNum b, Decree decree) {
+        receiveBeginBallot(new BeginBallotMessage(b, decree));
+    }
+
+    @Override
+    public void sendVoted(BallotNum prevBal, int id) {
+        receiveVoted(new VotedMessage(prevBal, id));
+    }
+
+    @Override
+    public void sendSuccess(Decree decree) {
 
     }
 
@@ -82,6 +93,15 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         else if (pm instanceof LastVotePaxosMessage) {
             receiveLastVote((LastVotePaxosMessage) pm);
+        }
+        else if (pm instanceof BeginBallotMessage) {
+            receiveBeginBallot((BeginBallotMessage) pm);
+        }
+        else if (pm instanceof VotedMessage) {
+            receiveVoted((VotedMessage) pm);
+        }
+        else if (pm instanceof SuccessMessage) {
+            receiveSuccess((SuccessMessage) pm);
         }
     }
 
@@ -109,7 +129,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     PaxosParticipant findParticipant(int owner) {
-        for (PaxosParticipant p: quorum) {
+        for (PaxosParticipant p: all) {
             if (p.getId() == owner)
                 return p;
         }
@@ -146,10 +166,52 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void beginBallot() {
+        assert status == Status.POLLING;
+
         BallotNum b = ledger.getLastTried();
         for (PaxosParticipant p: quorum) {
             p.sendBeginBallot(b, decree);
         }
     }
 
+    void receiveBeginBallot(BeginBallotMessage pm) {
+        BallotNum b = pm.b;
+        BallotNum nextBal = ledger.getNextBallot();
+        if (b.equals(nextBal)) {
+            BallotNum prevBal = ledger.getPrevBallot();
+            if (b.compareTo(prevBal) > 0) {
+                ledger.setPrevBallot(b);
+                ledger.setPrevDec(pm.decree);
+            }
+            if (!prevBal.isNull()) {
+                PaxosParticipant p = findParticipant(prevBal.processNum);
+                p.sendVoted(prevBal, id);
+            }
+        }
+    }
+
+    void receiveVoted(VotedMessage vm) {
+        BallotNum lastTried = ledger.getLastTried();
+        BallotNum b = vm.prevBal;
+        if (b.equals(lastTried) && status == Status.POLLING) {
+            PaxosParticipant q = findParticipant(vm.owner);
+            voters.add(q);
+            if (voters.containsAll(quorum)) {
+                Long v = ledger.getOutcome(decree.decreeNum);
+                if (v == null) {
+                    ledger.setOutcome(decree.decreeNum, decree.value);
+                    for (PaxosParticipant p: all) {
+                        p.sendSuccess(new Decree(decree.decreeNum, decree.value));
+                    }
+                }
+            }
+        }
+    }
+
+    void receiveSuccess(SuccessMessage sm) {
+        Long v = ledger.getOutcome(sm.decree.decreeNum);
+        if (v == null) {
+            ledger.setOutcome(sm.decree.decreeNum, sm.decree.value);
+        }
+    }
 }
