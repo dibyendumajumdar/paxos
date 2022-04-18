@@ -180,6 +180,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             if (b.compareTo(prevBal) > 0) {
                 ledger.setPrevBallot(b);
                 ledger.setPrevDec(pm.decree);
+                prevBal = b;
             }
             if (!prevBal.isNull()) {
                 PaxosParticipant p = findParticipant(prevBal.processNum);
