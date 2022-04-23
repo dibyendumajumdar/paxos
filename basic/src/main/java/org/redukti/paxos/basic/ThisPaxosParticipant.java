@@ -164,7 +164,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void startPolling() {
         status = Status.POLLING;
-        quorum = prevVotes.stream().map(v -> findParticipant(v.p)).collect(Collectors.toSet());
+        quorum = prevVotes.stream().map(v -> findParticipant(v.process)).collect(Collectors.toSet());
         voters.clear();
         Vote maxVote = prevVotes.stream().sorted((a,b) -> b.compareTo(a)).findFirst().get();
         Decree maxVoteDecree = maxVote.decree;

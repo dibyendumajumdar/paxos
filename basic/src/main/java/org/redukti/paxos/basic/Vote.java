@@ -6,26 +6,34 @@ import org.redukti.paxos.log.api.Decree;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
+/**
+ * A Vote is defined as the quantity consisting of 3 components: a
+ * process (priest), a ballot number and a decree. It represents a vote cast
+ * by a process for said decree in said ballot number. p6.
+ */
 public class Vote implements Comparable<Vote> {
-    final int p;
-    final BallotNum b;
+    /**
+     * Process id of the voter
+     */
+    final int process;
+    final BallotNum ballotNum;
     final Decree decree;
 
-    public Vote(int p, BallotNum b, Decree decree) {
-        this.p = p;
-        this.b = b;
+    public Vote(int process, BallotNum ballotNum, Decree decree) {
+        this.process = process;
+        this.ballotNum = ballotNum;
         this.decree = decree;
     }
 
     public Vote(ByteBuffer bb) {
-        this.p = bb.get();
-        this.b = new BallotNum(bb);
+        this.process = bb.get();
+        this.ballotNum = new BallotNum(bb);
         this.decree = new Decree(bb);
     }
 
     public void store(ByteBuffer bb) {
-        bb.put((byte) p);
-        b.store(bb);
+        bb.put((byte) process);
+        ballotNum.store(bb);
         decree.store(bb);
     }
 
@@ -43,19 +51,23 @@ public class Vote implements Comparable<Vote> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(b);
+        return Objects.hash(ballotNum);
     }
 
+    /**
+     * For any vote v and v', if v.ballotNum < v'.ballotNum then
+     * v < v'. p6.
+     */
     @Override
     public int compareTo(Vote o) {
-        return b.compareTo(o.b);
+        return ballotNum.compareTo(o.ballotNum);
     }
 
     @Override
     public String toString() {
         return "Vote{" +
-                "p=" + p +
-                ", b=" + b +
+                "p=" + process +
+                ", b=" + ballotNum +
                 ", decree=" + decree +
                 '}';
     }
