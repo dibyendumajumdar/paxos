@@ -65,4 +65,9 @@ public interface Ledger extends AutoCloseable {
      * for given decreeNum
      */
     BallotNum getNextBallot(long decreeNum);
+
+    /**
+     * Obtain the maximum decree that was committed to the ledger
+     */
+    long getMaxDecreeNum();
 }

@@ -31,7 +31,7 @@ public class TestLedger {
         try (Ledger ledger = LedgerImpl.createIfNotExisting(basePath, "l1", ID)) {
             Assert.assertNotNull(ledger);
         }
-        checkSize(new File(basePath,"l1"), 1);
+        checkSize(new File(basePath,"l1.log"), 0);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
             Assert.assertEquals(NEG_INF, ledger.getNextBallot(0));
             Assert.assertEquals(NEG_INF, ledger.getLastTried(0));
@@ -59,7 +59,7 @@ public class TestLedger {
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
-        checkSize(new File(basePath,"l1"), 2);
+        checkSize(new File(basePath,"l1.log"), 1);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
             Assert.assertEquals(secondBallot, ledger.getNextBallot(0));
             Assert.assertEquals(firstBallot, ledger.getPrevBallot(0));
@@ -70,7 +70,7 @@ public class TestLedger {
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
-        checkSize(new File(basePath,"l1"), 2);
+        checkSize(new File(basePath,"l1.log"), 1);
     }
 
     private void checkSize(File file, int pages) throws IOException {
