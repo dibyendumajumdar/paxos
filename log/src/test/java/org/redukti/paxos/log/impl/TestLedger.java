@@ -33,40 +33,40 @@ public class TestLedger {
         }
         checkSize(new File(basePath,"l1"), 1);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(NEG_INF, ledger.getNextBallot());
-            Assert.assertEquals(NEG_INF, ledger.getLastTried());
-            Assert.assertEquals(NEG_INF, ledger.getPrevBallot());
-            Assert.assertEquals(NULL_DECREE, ledger.getPrevDec());
+            Assert.assertEquals(NEG_INF, ledger.getNextBallot(0));
+            Assert.assertEquals(NEG_INF, ledger.getLastTried(0));
+            Assert.assertEquals(NEG_INF, ledger.getPrevBallot(0));
+            Assert.assertEquals(NULL_DECREE, ledger.getPrevDec(0));
         }
         BallotNum firstBallot = new BallotNum(1, ID);
         Decree firstDecree = new Decree(firstBallot.proposalNumber, 101);
         BallotNum secondBallot = new BallotNum(2, ID);
         Decree secondDecree = new Decree(secondBallot.proposalNumber, 103);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            ledger.setNextBallot(secondBallot);
-            ledger.setPrevBallot(firstBallot);
-            ledger.setLastTried(secondBallot);
+            ledger.setNextBallot(0,secondBallot);
+            ledger.setPrevBallot(0,firstBallot);
+            ledger.setLastTried(0,secondBallot);
             ledger.setOutcome(firstDecree.decreeNum, firstDecree.value);
             ledger.setOutcome(secondDecree.decreeNum, secondDecree.value);
-            ledger.setPrevDec(secondDecree);
+            ledger.setPrevDec(0,secondDecree);
 
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot(0));
+            Assert.assertEquals(firstBallot, ledger.getPrevBallot(0));
+            Assert.assertEquals(secondBallot, ledger.getNextBallot(0));
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree, ledger.getPrevDec());
+            Assert.assertEquals(secondDecree, ledger.getPrevDec(0));
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
         checkSize(new File(basePath,"l1"), 2);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
+            Assert.assertEquals(secondBallot, ledger.getNextBallot(0));
+            Assert.assertEquals(firstBallot, ledger.getPrevBallot(0));
+            Assert.assertEquals(secondBallot, ledger.getNextBallot(0));
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree, ledger.getPrevDec());
+            Assert.assertEquals(secondDecree, ledger.getPrevDec(0));
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }

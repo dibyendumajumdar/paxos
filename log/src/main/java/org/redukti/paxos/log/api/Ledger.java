@@ -23,41 +23,41 @@ public interface Ledger extends AutoCloseable {
     /**
      * Sets the number of the last ballot that p tried to begin
      */
-    void setLastTried(BallotNum ballot);
+    void setLastTried(long decreeNum, BallotNum ballot);
 
     /**
      * The number of last ballot that p tried to begin or BallotNum.MINUS_INFINITY if there was none
      * @return
      */
-    BallotNum getLastTried();
+    BallotNum getLastTried(long decreeNum);
 
     /**
      * Sets the number of the last ballot in which p voted
      */
-    void setPrevBallot(BallotNum ballot);
+    void setPrevBallot(long decreeNum, BallotNum ballot);
     /**
      * The number of the last ballot in which p voted, or BallotNum.MINUS_INFINITY if p never voted
      */
-    BallotNum getPrevBallot();
+    BallotNum getPrevBallot(long decreeNum);
 
     /**
      * The decree for which p last voted
      */
-    void setPrevDec(Decree decree);
+    void setPrevDec(long decreeNum, Decree decree);
 
     /**
      * The decree for which p last voted, or null if p never voted
      */
-    Decree getPrevDec();
+    Decree getPrevDec(long decreeNum);
 
     /**
      * The number of the last ballot in which p agreed to participate
      */
-    void setNextBallot(BallotNum ballot);
+    void setNextBallot(long decreeNum, BallotNum ballot);
 
     /**
      * he number of the last ballot in which p agreed to participate, or
      * BallotNum.MINUS_INFINITY if he has never agreed to participate in a ballot.
      */
-    BallotNum getNextBallot();
+    BallotNum getNextBallot(long decreeNum);
 }

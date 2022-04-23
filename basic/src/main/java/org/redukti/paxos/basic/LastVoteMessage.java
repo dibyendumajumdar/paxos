@@ -1,7 +1,6 @@
 package org.redukti.paxos.basic;
 
 import org.redukti.paxos.log.api.BallotNum;
-import org.redukti.paxos.log.api.Decree;
 
 import java.nio.ByteBuffer;
 

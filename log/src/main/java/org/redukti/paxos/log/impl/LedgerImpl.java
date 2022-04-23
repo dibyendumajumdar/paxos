@@ -447,46 +447,46 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setLastTried(BallotNum ballot) {
+    public void setLastTried(long decreeNum, BallotNum ballot) {
         header.lastTried = ballot;
         writeHeader();
     }
 
     @Override
-    public BallotNum getLastTried() {
+    public BallotNum getLastTried(long decreeNum) {
         return header.lastTried;
     }
 
     @Override
-    public void setPrevBallot(BallotNum ballot) {
+    public void setPrevBallot(long decreeNum, BallotNum ballot) {
         header.prevBallot = ballot;
         writeHeader();
     }
 
     @Override
-    public BallotNum getPrevBallot() {
+    public BallotNum getPrevBallot(long decreeNum) {
         return header.prevBallot;
     }
 
     @Override
-    public void setPrevDec(Decree decree) {
+    public void setPrevDec(long decreeNum, Decree decree) {
         header.prevDecree = decree;
         writeHeader();
     }
 
     @Override
-    public Decree getPrevDec() {
+    public Decree getPrevDec(long decreeNum) {
         return header.prevDecree;
     }
 
     @Override
-    public void setNextBallot(BallotNum ballot) {
+    public void setNextBallot(long decreeNum, BallotNum ballot) {
         header.lastBallot = ballot;
         writeHeader();
     }
 
     @Override
-    public BallotNum getNextBallot() {
+    public BallotNum getNextBallot(long decreeNum) {
         return header.lastBallot;
     }
 }

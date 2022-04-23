@@ -30,6 +30,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     Set<PaxosParticipant> all = new LinkedHashSet<>();
     Decree decree = null;
 
+    static final long DECREE_NUM = 0;
+
     final BasicPaxosProcess process;
 
     public ThisPaxosParticipant(BasicPaxosProcess process) {
@@ -46,9 +48,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     public synchronized void tryNewBallot() {
-        BallotNum b = ledger.getLastTried();
+        BallotNum b = ledger.getLastTried(DECREE_NUM);
         b = b.increment();
-        ledger.setLastTried(b);
+        ledger.setLastTried(DECREE_NUM,b);
         status = Status.TRYING;
         prevVotes.clear();
         nextBallot(b);
@@ -123,19 +125,19 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     //   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
     void receiveNextBallot(NextBallotMessage pm) {
         BallotNum b = pm.b;
-        BallotNum nextBal = ledger.getNextBallot();
+        BallotNum nextBal = ledger.getNextBallot(DECREE_NUM);
         if (b.compareTo(nextBal) >= 0) {
-            ledger.setNextBallot(b);
+            ledger.setNextBallot(DECREE_NUM,b);
             nextBal = b;
         }
-        BallotNum prevBal = ledger.getPrevBallot();
+        BallotNum prevBal = ledger.getPrevBallot(DECREE_NUM);
         if (nextBal.compareTo(prevBal) > 0) {
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
             // less than b that we have cast, or its null if we haven't yet
             // voted in a ballot less than b.
-            Vote v = new Vote(myId, prevBal, ledger.getPrevDec());
+            Vote v = new Vote(myId, prevBal, ledger.getPrevDec(DECREE_NUM));
             p.sendLastVoteMessage(b, v);
         }
     }
@@ -153,7 +155,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // – Set prevVotes[p] to the union of its original value and {v}.
     void receiveLastVote(LastVoteMessage lv) {
         BallotNum b = lv.b;
-        BallotNum lastTried = ledger.getLastTried();
+        BallotNum lastTried = ledger.getLastTried(DECREE_NUM);
         if (b.equals(lastTried) && status == Status.TRYING) {
             prevVotes.add(lv.v);
             if (prevVotes.size() >= 2) {
@@ -170,7 +172,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         Decree maxVoteDecree = maxVote.decree;
         if (maxVoteDecree.isNull())
             // Choose any decree
-            decree = new Decree(0, 42);
+            decree = new Decree(DECREE_NUM, 42);
         else
             decree = maxVoteDecree;
         beginBallot();
@@ -178,7 +180,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void beginBallot() {
         assert status == Status.POLLING;
-        BallotNum b = ledger.getLastTried();
+        BallotNum b = ledger.getLastTried(DECREE_NUM);
         for (PaxosParticipant p: quorum) {
             p.sendBeginBallot(b, decree);
         }
@@ -186,12 +188,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void receiveBeginBallot(BeginBallotMessage pm) {
         BallotNum b = pm.b;
-        BallotNum nextBal = ledger.getNextBallot();
+        BallotNum nextBal = ledger.getNextBallot(DECREE_NUM);
         if (b.equals(nextBal)) {
-            BallotNum prevBal = ledger.getPrevBallot();
+            BallotNum prevBal = ledger.getPrevBallot(DECREE_NUM);
             if (b.compareTo(prevBal) > 0) {
-                ledger.setPrevBallot(b);
-                ledger.setPrevDec(pm.decree);
+                ledger.setPrevBallot(DECREE_NUM,b);
+                ledger.setPrevDec(DECREE_NUM, pm.decree);
                 PaxosParticipant p = findParticipant(b.processNum);
                 p.sendVoted(b, myId);
             }
@@ -199,7 +201,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveVoted(VotedMessage vm) {
-        BallotNum lastTried = ledger.getLastTried();
+        BallotNum lastTried = ledger.getLastTried(DECREE_NUM);
         BallotNum b = vm.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
             PaxosParticipant q = findParticipant(vm.owner);
