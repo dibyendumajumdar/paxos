@@ -12,6 +12,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,17 +23,37 @@ import java.util.Map;
 
 public class LedgerImpl implements Ledger {
 
-    final static Logger log = LoggerFactory.getLogger(LedgerImpl.class);
-    public static final int PAGE_SIZE = 8 * 1024;
-    final static int VALUE_SIZE = Long.BYTES + Byte.BYTES;
+    static final Logger log = LoggerFactory.getLogger(LedgerImpl.class);
 
     /**
-     * The underlying file objects.
+     * Size of pages in log file (we extend file by page at a time)
+     */
+    static final int PAGE_SIZE = 8 * 1024;
+    /**
+     * The decree value is just a long for now, and an extra byte
+     * to help us decide if value is set or not (magic value 42)
+     */
+    static final int VALUE_SIZE = Long.BYTES + Byte.BYTES;
+    public static final int MAGIC = 42;
+
+    /**
+     * Log file is where decrees are stored
      */
     private final RandomAccessFile logFile;
+    /**
+     * Status file is where we store the ballot data for
+     * a particular decree number; this file holds statuses
+     * for last N decree numbers
+     */
     private final RandomAccessFile statusFile;
 
+    /**
+     * Process id of the owner
+     */
     private final int id;
+    /**
+     * Logical name, actual name is created by adding an extension
+     */
     private final String name;
 
     /**
@@ -59,11 +80,30 @@ public class LedgerImpl implements Ledger {
     private static final String FLUSH_MODE = "storage.flushMode";
     private static final String DEFAULT_FLUSH_MODE = "force.true";
 
+    /**
+     * Values stored for each decree as ballots take
+     * place, taken straight from paxos paper
+     */
     static final class DecreeBallotStatus {
+        /**
+         * Decree number whose ballot status is being recorded
+         */
         long decreeNum;
+        /**
+         * the number of the last ballot that p tried to begin for the given decreeNum
+         */
         BallotNum lastTried;
+        /**
+         * the number of the last ballot in which p voted, for the given decreeNum
+         */
         BallotNum prevBallot;
+        /**
+         * The decree for which p last voted, for given decreeNum
+         */
         Decree prevDecree;
+        /**
+         * The number of the last ballot in which p agreed to participate, for the given decreeNum
+         */
         BallotNum lastBallot;
 
         public static int size() {
@@ -105,7 +145,13 @@ public class LedgerImpl implements Ledger {
         }
     }
 
+    /**
+     * Cached status values for last 100 decree numbers
+     */
     DecreeBallotStatus[] decreeBallotStatus = new DecreeBallotStatus[100];
+    /**
+     * Mapping from decree number to offset in decreeBallotStatus
+     */
     Map<Long, Integer> decreeNumMap = new HashMap<>();
 
     private LedgerImpl(int id, RandomAccessFile logFile, RandomAccessFile statusFile, String name, String flushMode) {
@@ -167,9 +213,7 @@ public class LedgerImpl implements Ledger {
     }
 
     /**
-     * Creates a new File based Storage Container object. If a container of the
-     * same name already exists, it is over-written. By default the container is
-     * opened in read/write mode.
+     * Creates a new Ledger. Will fail if ledger already exists
      */
     public static Ledger createIfNotExisting(String basePath, String logicalName, int id) {
         log.info("Creating Ledger " + logicalName + " in " + basePath);
@@ -201,11 +245,7 @@ public class LedgerImpl implements Ledger {
     }
 
     /**
-     * <p>
-     * Opens an existing File based Storage Container object. If a container of
-     * the specified name does not exist, an Exception is thrown. By default the
-     * container is opened in read/write mode.
-     * </p>
+     * Opens a ledger, will fail if ledger does not exist
      */
     public static Ledger open(String basePath, String logicalName, int id)
             throws LedgerException {
@@ -236,9 +276,10 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         close(statusFile);
         close(logFile);
+        log.info("Ledger " + name + " closed");
     }
 
     public static void delete(String basePath, String logicalName) throws LedgerException {
@@ -256,9 +297,6 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.simpledbm.rss.api.st.StorageContainerFactory#exists(java.lang.String)
-     */
     public static boolean exists(String basePath, String logicalName) {
         checkBasePath(basePath, false);
         String name = getFileName(basePath, logicalName, false);
@@ -269,6 +307,8 @@ public class LedgerImpl implements Ledger {
     private static void deleteRecursively(File dir) {
         if (dir.isDirectory()) {
             File[] files = dir.listFiles();
+            if (files == null)
+                return;
             for (File file : files) {
                 if (file.isDirectory()) {
                     deleteRecursively(file);
@@ -296,14 +336,20 @@ public class LedgerImpl implements Ledger {
         deleteRecursively(file);
     }
 
+    /**
+     * Initializes all the statuses to null status
+     */
     LedgerImpl initializeStatuses() {
         DecreeBallotStatus status = new DecreeBallotStatus(-1, id);
-        for (int i = 0; i < decreeBallotStatus.length; i++)
-            decreeBallotStatus[i] = status;
+        Arrays.fill(decreeBallotStatus, status);
         return this;
     }
 
+    /**
+     * Reads all the statuses into the cache
+     */
     LedgerImpl readAllStatuses() {
+        decreeNumMap.clear();
         final int size = DecreeBallotStatus.size();
         byte[] data = new byte[size];
         ByteBuffer bb = ByteBuffer.wrap(data);
@@ -313,19 +359,24 @@ public class LedgerImpl implements Ledger {
             if (n != data.length)
                 throw new LedgerException("Failed to read status record " + i + " from ledger " + name);
             decreeBallotStatus[i] = new DecreeBallotStatus(bb.clear());
+            if (decreeBallotStatus[i].decreeNum >= 0)
+                decreeNumMap.put(decreeBallotStatus[i].decreeNum, i);
             position += size;
         }
         return this;
     }
 
+    /**
+     * Writes all status to disk
+     */
     LedgerImpl writeAllStatuses() {
         final int size = DecreeBallotStatus.size();
         byte[] data = new byte[size];
         ByteBuffer bb = ByteBuffer.wrap(data);
         long position = 0;
-        for (int i = 0; i < decreeBallotStatus.length; i++) {
+        for (DecreeBallotStatus ballotStatus : decreeBallotStatus) {
             bb.clear();
-            decreeBallotStatus[i].store(bb);
+            ballotStatus.store(bb);
             write(statusFile, position, data, 0, data.length);
             position += size;
         }
@@ -344,10 +395,11 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    public final synchronized void write(RandomAccessFile file, long position,
-                                         byte[] data,
-                                         int offset,
-                                         int length) {
+    void write(RandomAccessFile file,
+               long position,
+               byte[] data,
+               int offset,
+               int length) {
         isValid(file);
         try {
             file.seek(position);
@@ -357,12 +409,13 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    public final synchronized int read(RandomAccessFile file, long position,
-                                       byte[] data,
-                                       int offset,
-                                       int length) {
+    int read(RandomAccessFile file,
+             long position,
+             byte[] data,
+             int offset,
+             int length) {
         isValid(file);
-        int n = 0;
+        int n;
         try {
             file.seek(position);
             n = file.read(data, offset, length);
@@ -372,7 +425,7 @@ public class LedgerImpl implements Ledger {
         return n;
     }
 
-    public final synchronized void flush(RandomAccessFile file) {
+    void flush(RandomAccessFile file) {
         isValid(file);
         try {
             // FIXME hard coded values
@@ -386,14 +439,13 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    public final synchronized void close(RandomAccessFile file) throws LedgerException {
+    void close(RandomAccessFile file) throws LedgerException {
         isValid(file);
         try {
             file.close();
         } catch (IOException e) {
-            throw new LedgerException("Error closing ledger " + name, e);
+            log.error("Error closing ledger " + name, e);
         }
-        log.info("Ledger " + name + " closed");
     }
 
     long getOffsetOf(long decreeNum) {
@@ -403,18 +455,18 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setOutcome(long decreeNum, long data) {
+    public synchronized void setOutcome(long decreeNum, long data) {
         long offset = getOffsetOf(decreeNum);
         extend(offset);
         byte[] bytes = new byte[VALUE_SIZE];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
-        bb.put((byte) 42);
+        bb.put((byte) MAGIC);
         bb.putLong(data);
         write(logFile, offset, bytes, 0, bytes.length);
         flush(logFile);
     }
 
-    private void extend(long offset) {
+    void extend(long offset) {
         try {
             long length = logFile.length();
             if (offset <= length)
@@ -436,7 +488,7 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public Long getOutcome(long decreeNum) {
+    public synchronized Long getOutcome(long decreeNum) {
         long offset = getOffsetOf(decreeNum);
         try {
             long length = logFile.length();
@@ -492,71 +544,70 @@ public class LedgerImpl implements Ledger {
         return offset;
     }
 
-    private void initStatusRecord(long decreeNum, Integer offset) {
+    void initStatusRecord(long decreeNum, Integer offset) {
         decreeNumMap.put(decreeNum, offset);
         decreeBallotStatus[offset] = new DecreeBallotStatus(decreeNum, id);
         writeStatus(offset);
     }
 
-    LedgerImpl writeStatus(int i) {
+    void writeStatus(int i) {
         final int size = DecreeBallotStatus.size();
         byte[] data = new byte[size];
         ByteBuffer bb = ByteBuffer.wrap(data);
-        long position = i * size;
+        long position = (long) i * size;
         decreeBallotStatus[i].store(bb);
         write(statusFile, position, data, 0, data.length);
         flush(statusFile);
-        return this;
     }
 
     @Override
-    public void setLastTried(long decreeNum, BallotNum ballot) {
+    public synchronized void setLastTried(long decreeNum, BallotNum ballot) {
         int offset = getHeaderOffset(decreeNum);
         decreeBallotStatus[offset].lastTried = ballot;
         writeStatus(offset);
     }
 
     @Override
-    public BallotNum getLastTried(long decreeNum) {
+    public synchronized BallotNum getLastTried(long decreeNum) {
         int offset = getHeaderOffset(decreeNum);
         return decreeBallotStatus[offset].lastTried;
     }
 
     @Override
-    public void setPrevBallot(long decreeNum, BallotNum ballot) {
+    public synchronized void setPrevBallot(long decreeNum, BallotNum ballot) {
         int offset = getHeaderOffset(decreeNum);
         decreeBallotStatus[offset].prevBallot = ballot;
         writeStatus(offset);
     }
 
     @Override
-    public BallotNum getPrevBallot(long decreeNum) {
+    public synchronized BallotNum getPrevBallot(long decreeNum) {
         int offset = getHeaderOffset(decreeNum);
         return decreeBallotStatus[offset].prevBallot;
     }
 
     @Override
-    public void setPrevDec(long decreeNum, Decree decree) {
+    public synchronized void setPrevDec(long decreeNum, Decree decree) {
         int offset = getHeaderOffset(decreeNum);
         decreeBallotStatus[offset].prevDecree = decree;
         writeStatus(offset);
     }
 
     @Override
-    public Decree getPrevDec(long decreeNum) {
+    public synchronized Decree getPrevDec(long decreeNum) {
         int offset = getHeaderOffset(decreeNum);
         return decreeBallotStatus[offset].prevDecree;
     }
 
     @Override
-    public void setNextBallot(long decreeNum, BallotNum ballot) {
+    public synchronized void setNextBallot(long decreeNum, BallotNum ballot) {
         int offset = getHeaderOffset(decreeNum);
         decreeBallotStatus[offset].lastBallot = ballot;
         writeStatus(offset);
     }
 
     @Override
-    public BallotNum getNextBallot(long decreeNum) {
+    public synchronized BallotNum getNextBallot(long decreeNum) {
         int offset = getHeaderOffset(decreeNum);
         return decreeBallotStatus[offset].lastBallot;
     }
