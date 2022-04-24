@@ -2,6 +2,7 @@ package org.redukti.paxos.net.example.echoserv;
 
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
+import org.redukti.paxos.net.api.RequestResponseSender;
 import org.redukti.paxos.net.impl.EventLoopImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,13 +34,14 @@ public class EchoServer implements RequestHandler {
     }
 
     @Override
-    public void handleRequest(Message request, Message response) {
+    public void handleRequest(Message request, RequestResponseSender responseSender) {
         log.info("Handling request " + request.getCorrelationId());
         int value = request.getData().rewind().getInt();
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.putInt(value);
         bb.flip();
-        response.setData(bb);
+        responseSender.setData(bb);
+        responseSender.submit();
         requests.incrementAndGet();
     }
 

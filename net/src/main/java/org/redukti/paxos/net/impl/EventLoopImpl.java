@@ -313,6 +313,39 @@ public class EventLoopImpl implements EventLoop {
         }
     }
 
+    static final class RequestResponseSenderImpl implements RequestResponseSender {
+        final ProtocolHandler protocolHandler;
+        final MessageHeader messageHeader;
+        final MessageImpl response;
+        static final ByteBuffer defaultData = ByteBuffer.allocate(0);
+
+        RequestResponseSenderImpl(ProtocolHandler protocolHandler, MessageHeader requestHeader) {
+            this.protocolHandler = protocolHandler;
+            this.messageHeader = new MessageHeader(false);
+            messageHeader.setCorrelationId(requestHeader.getCorrelationId());
+            messageHeader.setHasException(false);
+            response = new MessageImpl(messageHeader, defaultData);
+        }
+
+        @Override
+        public void setData(ByteBuffer data) {
+            response.setData(data);
+        }
+
+        @Override
+        public void setErrored(String errorMessage) {
+            messageHeader.setHasException(true);
+            response.setData(ByteBuffer.wrap(errorMessage.getBytes()));
+            messageHeader.setDataSize(response.getData().limit());
+        }
+
+        @Override
+        public void submit() {
+            protocolHandler.queueWrite(new WriteRequest(messageHeader,
+                    response.getData()));
+        }
+    }
+
     /**
      * RequestDispatcher task is responsible for handling a server side request. Actual
      * request handling is delegated to a RequestHandler instance.
@@ -343,20 +376,13 @@ public class EventLoopImpl implements EventLoop {
         public void run() {
             requestData.rewind();
             Message request = new MessageImpl(requestHeader, requestData);
-            // setup default response
-            MessageHeader messageHeader = new MessageHeader(false);
-            messageHeader.setCorrelationId(requestHeader.getCorrelationId());
-            messageHeader.setHasException(false);
-            MessageImpl response = new MessageImpl(messageHeader, defaultData);
+            RequestResponseSenderImpl responseGenerator = new RequestResponseSenderImpl(protocolHandler, requestHeader);
             try {
-                requestHandler.handleRequest(request, response);
+                requestHandler.handleRequest(request, responseGenerator);
             } catch (Exception e) {
-                response.setData(ByteBuffer.wrap(e.getMessage().getBytes()));
-                messageHeader.setDataSize(response.getData().limit());
-                messageHeader.setHasException(true);
+                log.error("Exception occurred when handling request " + requestHeader.getCorrelationId());
+                responseGenerator.setErrored(e.getMessage());
             }
-            protocolHandler.queueWrite(new WriteRequest(messageHeader,
-                    response.getData()));
         }
     }
 

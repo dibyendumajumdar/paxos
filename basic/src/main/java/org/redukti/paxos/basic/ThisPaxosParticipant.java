@@ -5,6 +5,7 @@ import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
+import org.redukti.paxos.net.api.RequestResponseSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,7 +92,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public synchronized void handleRequest(Message request, Message response) {
+    public synchronized void handleRequest(Message request, RequestResponseSender responseSender) {
         PaxosMessage pm = PaxosMessages.parseMessage(request.getData());
         log.info("Received " + pm.toString());
         if (pm instanceof NextBallotMessage) {
@@ -108,6 +109,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         else if (pm instanceof SuccessMessage) {
             receiveSuccess((SuccessMessage) pm);
+        }
+        else if (pm instanceof ClientRequestMessage) {
+
         }
         else {
             log.error("Unknown message " + pm);

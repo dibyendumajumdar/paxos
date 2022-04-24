@@ -8,6 +8,7 @@ public class PaxosMessages {
     static final int BEGIN_BALLOT_MESSAGE = 3;
     static final int VOTED_MESSAGE = 4;
     static final int SUCCESS_MESSAGE = 5;
+    static final int CLIENT_REQUEST_MESSAGE = 6;
 
     public static PaxosMessage parseMessage(ByteBuffer bb) {
         int messageId = bb.getShort();
@@ -26,6 +27,9 @@ public class PaxosMessages {
             }
             case SUCCESS_MESSAGE: {
                 return new SuccessMessage(bb);
+            }
+            case CLIENT_REQUEST_MESSAGE: {
+                return new ClientRequestMessage(bb);
             }
             default: {
                 throw new IllegalArgumentException();
