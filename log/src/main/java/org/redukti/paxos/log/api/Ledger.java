@@ -37,6 +37,7 @@ public interface Ledger extends AutoCloseable {
     void setPrevBallot(BallotNum ballot);
     /**
      * The number of the last ballot in which p voted, or BallotNum.MINUS_INFINITY if p never voted
+     * Also known as MaxVBal?
      */
     BallotNum getPrevBallot();
 
@@ -47,6 +48,7 @@ public interface Ledger extends AutoCloseable {
 
     /**
      * The decree for which p last voted, or null if p never voted
+     * Also known as MaxVal?
      */
     Decree getPrevDec();
 

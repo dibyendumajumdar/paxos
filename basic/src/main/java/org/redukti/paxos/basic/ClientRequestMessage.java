@@ -1,16 +1,21 @@
 package org.redukti.paxos.basic;
 
+import org.redukti.paxos.net.impl.CorrelationId;
+
 import java.nio.ByteBuffer;
 
 public class ClientRequestMessage implements PaxosMessage {
 
+    final CorrelationId correlationId;
     final long requestedValue;
 
-    public ClientRequestMessage(long requestedValue) {
+    public ClientRequestMessage(CorrelationId correlationId, long requestedValue) {
+        this.correlationId = correlationId;
         this.requestedValue = requestedValue;
     }
 
-    public ClientRequestMessage(ByteBuffer bb) {
+    public ClientRequestMessage(CorrelationId correlationId, ByteBuffer bb) {
+        this.correlationId = correlationId;
         this.requestedValue = bb.getLong();
     }
 

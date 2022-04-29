@@ -9,8 +9,10 @@ import org.redukti.paxos.net.api.RequestResponseSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ThisPaxosParticipant extends PaxosParticipant implements RequestHandler {
@@ -21,7 +23,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     final Ledger ledger;
 
     // Status of the process, initial IDLE
-    Status status = Status.IDLE;
+    volatile Status status = Status.IDLE;
     // If status == POLLING, then the set of quorum members from whom
     // we have received Voted messages in the current ballot; otherwise, meaningless.
     Set<PaxosParticipant> voters = new LinkedHashSet<>();
@@ -30,6 +32,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     Set<Vote> prevVotes = new LinkedHashSet<>();
     Set<PaxosParticipant> all = new LinkedHashSet<>();
     Decree decree = null;
+
+    AtomicReference<ClientRequestMessage> currentRequest = new AtomicReference<>();
+    volatile RequestResponseSender currentResponseSender;
 
     final BasicPaxosProcess process;
 
@@ -46,7 +51,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Also known as Phase1a(b)
+     */
     public synchronized void tryNewBallot() {
+        if (status != Status.IDLE) {
+            return;
+        }
         BallotNum b = ledger.getLastTried();
         b = b.increment();
         ledger.setLastTried(b);
@@ -93,7 +104,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public synchronized void handleRequest(Message request, RequestResponseSender responseSender) {
-        PaxosMessage pm = PaxosMessages.parseMessage(request.getData());
+        PaxosMessage pm = PaxosMessages.parseMessage(request.getCorrelationId(), request.getData());
         log.info("Received " + pm.toString());
         if (pm instanceof NextBallotMessage) {
             receiveNextBallot((NextBallotMessage) pm);
@@ -111,13 +122,17 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             receiveSuccess((SuccessMessage) pm);
         }
         else if (pm instanceof ClientRequestMessage) {
-
+            if (currentRequest.compareAndSet(null, (ClientRequestMessage) pm)) {
+                this.currentResponseSender = responseSender;
+                tryNewBallot();
+            }
         }
         else {
             log.error("Unknown message " + pm);
         }
     }
 
+    // Also known as Phase1b(a)
     // Receive NextBallot (b) Message
     // If b ≥ nextBal [p] then
     // – Set nextBal [p] to b.
@@ -152,6 +167,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         throw new IllegalArgumentException();
     }
 
+    // Also known as Phase2a(b,v)
     // Receive LastVote(b, v) Message
     // If b = lastTried [p] and status[p] = trying, then
     // – Set prevVotes[p] to the union of its original value and {v}.
@@ -172,12 +188,25 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         voters.clear();
         Vote maxVote = prevVotes.stream().sorted((a,b) -> b.compareTo(a)).findFirst().get();
         Decree maxVoteDecree = maxVote.decree;
-        if (maxVoteDecree.isNull())
-            // Choose any decree
-            decree = new Decree(0, 42);
+        if (maxVoteDecree.isNull()) {
+            // Choose client requested value
+            ClientRequestMessage crm = currentRequest.get();
+            if (crm == null) {
+                // hmm client timed out?
+                abort();
+                return;
+            }
+            decree = new Decree(0, crm.requestedValue);
+        }
         else
             decree = maxVoteDecree;
         beginBallot();
+    }
+
+    void abort() {
+        status = Status.IDLE;
+        quorum.clear();
+        voters.clear();
     }
 
     void beginBallot() {
@@ -188,6 +217,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Also known as Phase2b(a)
+     */
     void receiveBeginBallot(BeginBallotMessage pm) {
         BallotNum b = pm.b;
         BallotNum nextBal = ledger.getNextBallot();
@@ -225,5 +257,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (v == null) {
             ledger.setOutcome(sm.decree.decreeNum, sm.decree.value);
         }
+        ClientRequestMessage crm = currentRequest.get();
+        if (crm != null) {
+            currentResponseSender.setData(ByteBuffer.allocate(Long.BYTES).putLong(v).flip());
+            currentResponseSender.submit();
+            currentResponseSender = null;
+            currentRequest.getAndSet(null);
+        }
+        status = Status.IDLE;
     }
 }

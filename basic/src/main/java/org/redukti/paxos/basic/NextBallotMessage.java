@@ -4,6 +4,9 @@ import org.redukti.paxos.log.api.BallotNum;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Also message of type "1a"
+ */
 public class NextBallotMessage implements PaxosMessage {
     final BallotNum b;
 

@@ -1,5 +1,7 @@
 package org.redukti.paxos.basic;
 
+import org.redukti.paxos.net.impl.CorrelationId;
+
 import java.nio.ByteBuffer;
 
 public class PaxosMessages {
@@ -10,7 +12,7 @@ public class PaxosMessages {
     static final int SUCCESS_MESSAGE = 5;
     static final int CLIENT_REQUEST_MESSAGE = 6;
 
-    public static PaxosMessage parseMessage(ByteBuffer bb) {
+    public static PaxosMessage parseMessage(CorrelationId correlationId, ByteBuffer bb) {
         int messageId = bb.getShort();
         switch (messageId) {
             case NEXT_BALLOT_MESSAGE: {
@@ -29,7 +31,7 @@ public class PaxosMessages {
                 return new SuccessMessage(bb);
             }
             case CLIENT_REQUEST_MESSAGE: {
-                return new ClientRequestMessage(bb);
+                return new ClientRequestMessage(correlationId, bb);
             }
             default: {
                 throw new IllegalArgumentException();
