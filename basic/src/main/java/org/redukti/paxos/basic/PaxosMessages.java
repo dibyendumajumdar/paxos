@@ -11,6 +11,7 @@ public class PaxosMessages {
     static final int VOTED_MESSAGE = 4;
     static final int SUCCESS_MESSAGE = 5;
     static final int CLIENT_REQUEST_MESSAGE = 6;
+    static final int CLIENT_RESPONSE_MESSAGE = 7;
 
     public static PaxosMessage parseMessage(CorrelationId correlationId, ByteBuffer bb) {
         int messageId = bb.getShort();
@@ -32,6 +33,9 @@ public class PaxosMessages {
             }
             case CLIENT_REQUEST_MESSAGE: {
                 return new ClientRequestMessage(correlationId, bb);
+            }
+            case CLIENT_RESPONSE_MESSAGE: {
+                return new ClientResponseMessage(bb);
             }
             default: {
                 throw new IllegalArgumentException();

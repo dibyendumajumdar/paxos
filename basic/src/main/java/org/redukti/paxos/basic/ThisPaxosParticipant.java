@@ -9,7 +9,6 @@ import org.redukti.paxos.net.api.RequestResponseSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -278,7 +277,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         ClientRequestMessage crm = currentRequest.get();
         if (crm != null) {
-            currentResponseSender.setData(ByteBuffer.allocate(Long.BYTES).putLong(v).flip());
+            ClientResponseMessage rm = new ClientResponseMessage(v);
+            currentResponseSender.setData(rm.serialize());
             currentResponseSender.submit();
             currentResponseSender = null;
             currentRequest.getAndSet(null);

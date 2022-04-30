@@ -59,7 +59,8 @@ public class BasicPaxosClient implements ResponseHandler {
 
     @Override
     public void onResponse(Message response) {
-        long value = response.getData().rewind().getLong();
+        ClientResponseMessage clientResponseMessage = (ClientResponseMessage) PaxosMessages.parseMessage(response.getCorrelationId(), response.getData());
+        long value = clientResponseMessage.agreedValue;
         System.out.println("Received back " + value);
         received.incrementAndGet();
     }

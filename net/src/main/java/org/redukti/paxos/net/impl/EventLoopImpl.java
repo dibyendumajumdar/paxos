@@ -375,7 +375,6 @@ public class EventLoopImpl implements EventLoop {
         }
 
         public void run() {
-            requestData.rewind();
             Message request = new MessageImpl(requestHeader, requestData);
             RequestResponseSenderImpl responseGenerator = new RequestResponseSenderImpl(protocolHandler, requestHeader);
             try {

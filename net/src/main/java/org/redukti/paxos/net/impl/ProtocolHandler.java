@@ -122,8 +122,7 @@ public abstract class ProtocolHandler {
 
                 if (readState == STATE_HEADER_COMPLETED) {
                     /* parse the header */
-                    readHeader.rewind();
-                    requestHeader.retrieve(readHeader);
+                    requestHeader.retrieve(readHeader.flip());
                     EventLoopImpl.log.debug("Reading payload of " + requestHeader.getDataSize());
                     /* allocate buffer for reading the payload */
                     readPayload = ByteBuffer.allocate(requestHeader
@@ -154,7 +153,7 @@ public abstract class ProtocolHandler {
                 if (readState == STATE_PAYLOAD_COMPLETED) {
                     /* read completed, queue the request */
                     eventLoop.queueRequest(this, requestHeader,
-                            readPayload);
+                            readPayload.flip());
                     /* let's see if we can read another message */
                     readState = STATE_INIT;
                     readPayload = null;
