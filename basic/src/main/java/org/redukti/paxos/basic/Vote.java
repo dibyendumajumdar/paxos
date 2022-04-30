@@ -46,12 +46,12 @@ public class Vote implements Comparable<Vote> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Vote vote = (Vote) o;
-        return compareTo(vote) == 0 && process == vote.process;
+        return compareTo(vote) == 0;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(ballotNum);
+        return Objects.hash(ballotNum, process);
     }
 
     /**
@@ -60,7 +60,11 @@ public class Vote implements Comparable<Vote> {
      */
     @Override
     public int compareTo(Vote o) {
-        return ballotNum.compareTo(o.ballotNum);
+        int result = ballotNum.compareTo(o.ballotNum);
+        if (result == 0)
+            // tie breaker, does it matter which process? Think not
+            result = Integer.compare(process, o.process);
+        return result;
     }
 
     @Override
