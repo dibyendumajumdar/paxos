@@ -16,9 +16,6 @@ The main changes from the Part-Time Parliament paper are as follows:
 * `prevBal` renamed to `maxVBal`
 * `prevDec` renamed to `maxVal`
 
-I also noticed some changes in the way `nextBal` / `maxBal` is used - I decided to update the implementation
-to use the later TLA+ spec.
-
 There are also some differences in the description of the algo between the PTP paper and the TLA+ spec. I found following [discussion of these differences
 on StackOverflow](https://stackoverflow.com/questions/29880949/contradiction-in-lamports-paxos-made-simple-paper) helpful in understanding the differences.
 

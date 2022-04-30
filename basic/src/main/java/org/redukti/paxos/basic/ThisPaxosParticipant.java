@@ -137,6 +137,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     // Also known as Phase1b(a)
+    // Some conflicting description in PTP:
+    // p26.
     // Receive NextBallot (b) Message
     // If b ≥ nextBal [p] then
     // – Set nextBal [p] to b.
@@ -145,6 +147,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // – Send a LastVote(nextBal [p], v) message to priest owner(nextBal [p]), where
     //   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
     //
+    // p12.
+    // Upon receipt of a NextBallot(b) mesage from p with b > nextBal[q],
+    // priest q sets nextBal[q] to b and sends a LastVote(b,v) message to p,
+    // where v equals prevVote[q]. (A NextBallot(b) message is ignored if b <= nextBal[q].)
+    //
+    // From PMS paper:
     // Upon receipt of a ballot b phase 1a message, acceptor a can perform
     // a Phase1b(a) action only if b > maxBal[a]. The action sets maxBal[a] to b
     // and sends a phase 1b message to the leader containing the values of
@@ -153,18 +161,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         log.info("Received " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
-        if (b.compareTo(maxBal) >= 0) {
+        if (b.compareTo(maxBal) > 0) {
             ledger.setMaxBal(b);
-            maxBal = b;
-        }
-        BallotNum maxVBal = ledger.getMaxVBal();
-        if (maxBal.compareTo(maxVBal) > 0) {
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
             // less than b that we have cast, or its null if we haven't yet
             // voted in a ballot less than b.
-            Vote v = new Vote(myId, maxVBal, ledger.getMaxVal());
+            Vote v = new Vote(myId, ledger.getMaxVBal(), ledger.getMaxVal());
             p.sendLastVoteMessage(b, v);
         }
     }
