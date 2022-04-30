@@ -166,8 +166,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
-            // less than b that we have cast, or its null if we haven't yet
-            // voted in a ballot less than b.
+            // that we have cast, or its null if we haven't yet
+            // voted in a ballot.
             Vote v = new Vote(myId, ledger.getMaxVBal(), ledger.getMaxVal());
             p.sendLastVoteMessage(b, v);
         }
