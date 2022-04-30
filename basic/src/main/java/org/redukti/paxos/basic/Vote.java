@@ -46,7 +46,7 @@ public class Vote implements Comparable<Vote> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Vote vote = (Vote) o;
-        return compareTo(vote) == 0;
+        return compareTo(vote) == 0 && process == vote.process;
     }
 
     @Override
