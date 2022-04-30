@@ -37,6 +37,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     final BasicPaxosProcess process;
 
+    static final int PART_TIME_PARLIAMENT_VERSION = 0;
+    static final int STPT_2019_TLAPLUS_VERSION = 1;
+
+    int version = STPT_2019_TLAPLUS_VERSION;
+
     public ThisPaxosParticipant(BasicPaxosProcess process) {
         this.process = process;
         this.ledger = process.ledger;
@@ -161,8 +166,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         log.info("Received " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
-        if (b.compareTo(maxBal) > 0) {
-            ledger.setMaxBal(b);
+        if (receiveNextBallotEnabled(b, maxBal)) {
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
@@ -170,6 +174,27 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             // voted in a ballot.
             Vote v = new Vote(myId, ledger.getMaxVBal(), ledger.getMaxVal());
             p.sendLastVoteMessage(b, v);
+        }
+    }
+
+    boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
+        switch (version) {
+            case PART_TIME_PARLIAMENT_VERSION ->  {
+                if (b.compareTo(maxBal) >= 0) {
+                    ledger.setMaxBal(b);
+                    maxBal = b;
+                }
+                BallotNum maxVBal = ledger.getMaxVBal();
+                return maxBal.compareTo(maxVBal) > 0;
+            }
+            case STPT_2019_TLAPLUS_VERSION -> {
+                if (b.compareTo(maxBal) > 0) {
+                    ledger.setMaxBal(b);
+                    return true;
+                }
+                return false;
+            }
+            default -> throw new IllegalStateException();
         }
     }
 
@@ -231,8 +256,16 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     void beginBallot() {
         assert status == Status.POLLING;
         BallotNum b = ledger.getLastTried();
-        for (PaxosParticipant p: quorum) {
+        for (PaxosParticipant p: acceptors()) {
             p.sendBeginBallot(b, decree);
+        }
+    }
+
+    Set<PaxosParticipant> acceptors() {
+        switch (version) {
+            case PART_TIME_PARLIAMENT_VERSION -> { return quorum; }
+            case STPT_2019_TLAPLUS_VERSION -> { return all; }
+            default -> throw new IllegalStateException();
         }
     }
 
@@ -243,15 +276,32 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         log.info("Received " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
-        if (b.equals(maxBal)) {
-            BallotNum maxVBal = ledger.getMaxVBal();
-            if (b.compareTo(maxVBal) > 0) {
-                ledger.setMaxVBal(b);
-                ledger.setMaxVal(pm.decree);
-                PaxosParticipant p = findParticipant(b.processNum);
-                p.sendVoted(b, myId);
+        if (receiveBeginBallotEnabled(b, maxBal)) {
+            ledger.setMaxVBal(b);
+            ledger.setMaxVal(pm.decree);
+            PaxosParticipant p = findParticipant(b.processNum);
+            p.sendVoted(b, myId);
+        }
+    }
+
+    boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
+        switch (version) {
+            case PART_TIME_PARLIAMENT_VERSION -> {
+                if (b.equals(maxBal)) {
+                    BallotNum maxVBal = ledger.getMaxVBal();
+                    return b.compareTo(maxVBal) > 0;
+                }
+                break;
+            }
+            case STPT_2019_TLAPLUS_VERSION -> {
+                if (b.compareTo(maxBal) >= 0) {
+                    ledger.setMaxBal(b);
+                    return true;
+                }
+                break;
             }
         }
+        return false;
     }
 
     void receiveVoted(VotedMessage vm) {
