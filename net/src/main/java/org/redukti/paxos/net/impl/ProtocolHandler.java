@@ -124,7 +124,7 @@ public abstract class ProtocolHandler {
                     /* parse the header */
                     readHeader.rewind();
                     requestHeader.retrieve(readHeader);
-                    EventLoopImpl.log.info("Reading payload of " + requestHeader.getDataSize());
+                    EventLoopImpl.log.debug("Reading payload of " + requestHeader.getDataSize());
                     /* allocate buffer for reading the payload */
                     readPayload = ByteBuffer.allocate(requestHeader
                             .getDataSize());

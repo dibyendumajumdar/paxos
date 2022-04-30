@@ -31,4 +31,12 @@ public class ClientRequestMessage implements PaxosMessage {
     public int getCode() {
         return PaxosMessages.CLIENT_REQUEST_MESSAGE;
     }
+
+    @Override
+    public String toString() {
+        return "ClientRequestMessage{" +
+                "correlationId=" + correlationId +
+                ", requestedValue=" + requestedValue +
+                '}';
+    }
 }

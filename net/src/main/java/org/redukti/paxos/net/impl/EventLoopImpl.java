@@ -17,6 +17,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -259,7 +260,7 @@ public class EventLoopImpl implements EventLoop {
             // Server side
             RequestDispatcher requestDispatcher = new RequestDispatcher(this,
                     protocolHandler, requestHandler, requestHeader, request);
-            log.info("Scheduling server write of " + requestHeader.getDataSize() + " for " + correlationId);
+            log.debug("Scheduling server write of " + requestHeader.getDataSize() + " for " + correlationId);
             executor.execute(requestDispatcher);
         }
         else {
@@ -270,7 +271,7 @@ public class EventLoopImpl implements EventLoop {
                 log.warn("No handler found for " + correlationId);
                 return;
             }
-            log.info("Scheduling client response of " + requestHeader.getDataSize()  + " for " + correlationId);
+            log.debug("Scheduling client response of " + requestHeader.getDataSize()  + " for " + correlationId);
             ResponseDispatcher responseDispatcher = new ResponseDispatcher(this, handler, requestHeader, request);
             clientExecutor.execute(responseDispatcher);
         }
@@ -380,8 +381,8 @@ public class EventLoopImpl implements EventLoop {
             try {
                 requestHandler.handleRequest(request, responseGenerator);
             } catch (Exception e) {
-                log.error("Exception occurred when handling request " + requestHeader.getCorrelationId());
-                responseGenerator.setErrored(e.getMessage());
+                log.error("Exception occurred when handling request " + requestHeader.getCorrelationId(), e);
+                responseGenerator.setErrored(Objects.toString(e.getMessage()));
             }
         }
     }

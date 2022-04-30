@@ -4,10 +4,14 @@ import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
 public class RemotePaxosParticipant extends PaxosParticipant implements ResponseHandler {
+
+    final static Logger log = LoggerFactory.getLogger(RemotePaxosParticipant.class);
 
     int id;
     ProcessChannel remote;
@@ -22,29 +26,34 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
         return id;
     }
 
+    PaxosMessage logit(PaxosMessage m) {
+        log.info("Sending " + m + " to " + remote);
+        return m;
+    }
+
     @Override
     public void sendNextBallot(BallotNum b) {
-        remote.connection.submit(new NextBallotMessage(b).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new NextBallotMessage(b)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendLastVoteMessage(BallotNum b, Vote v) {
-        remote.connection.submit(new LastVoteMessage(b, v).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new LastVoteMessage(b, v)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendBeginBallot(BallotNum b, Decree decree) {
-        remote.connection.submit(new BeginBallotMessage(b, decree).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new BeginBallotMessage(b, decree)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendVoted(BallotNum prevBal, int id) {
-        remote.connection.submit(new VotedMessage(prevBal, id).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new VotedMessage(prevBal, id)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendSuccess(Decree decree) {
-        remote.connection.submit(new SuccessMessage(decree).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new SuccessMessage(decree)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
