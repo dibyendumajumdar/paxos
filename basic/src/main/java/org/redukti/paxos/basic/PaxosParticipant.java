@@ -10,13 +10,13 @@ public abstract class PaxosParticipant {
     // equivalent to phase 1 (a) prepare request
     public abstract void sendNextBallot(BallotNum b);
 
-    // equivalent to phase 1 (b) prepare accepted message
+    // equivalent to phase 1 (b) promise message
     public abstract void sendLastVoteMessage(BallotNum b, Vote v);
 
     // equivalent to phase 2 (a) accept request
     public abstract void sendBeginBallot(BallotNum b, Decree decree);
 
-    // equivalent to phase 2 (b)
+    // equivalent to phase 2 (b) accepted message
     public abstract void sendVoted(BallotNum prevBal, int id);
 
     public abstract void sendSuccess(Decree decree);
