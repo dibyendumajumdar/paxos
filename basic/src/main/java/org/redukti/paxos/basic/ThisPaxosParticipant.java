@@ -53,6 +53,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     /**
      * Also known as Phase1a(b)
+     * In the Phase1a(b) action, it sends to all acceptors a phase 1a message that begins ballot b.
      */
     public synchronized void tryNewBallot() {
         if (status != Status.IDLE) {
@@ -140,6 +141,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // Enabled whenever nextBal[p] > prevBal [p].
     // – Send a LastVote(nextBal [p], v) message to priest owner(nextBal [p]), where
     //   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
+    //
+    // Upon receipt of a ballot b phase 1a message, acceptor a can perform
+    // a Phase1b(a) action only if b > maxBal[a]. The action sets maxBal[a] to b
+    // and sends a phase 1b message to the leader containing the values of
+    // maxVBal[a] and maxVal[a].
     void receiveNextBallot(NextBallotMessage pm) {
         BallotNum b = pm.b;
         BallotNum nextBal = ledger.getNextBallot();
@@ -182,6 +188,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    // Part of Phase2a(b,v)
     void startPolling() {
         status = Status.POLLING;
         quorum = prevVotes.stream().map(v -> findParticipant(v.process)).collect(Collectors.toSet());
@@ -209,6 +216,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         voters.clear();
     }
 
+    /**
+     * Part of Phase2a(b,v)
+     */
     void beginBallot() {
         assert status == Status.POLLING;
         BallotNum b = ledger.getLastTried();

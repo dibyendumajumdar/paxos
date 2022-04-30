@@ -5,11 +5,20 @@ import org.redukti.paxos.log.api.BallotNum;
 import java.nio.ByteBuffer;
 
 /**
- * Also known as message type "1b"
+ * Also known as message type "1b" or PROMISE message.
  */
 public class LastVoteMessage implements PaxosMessage {
 
+    static final String MESSAGE_TYPE = "PROMISE (1b)";
+
+    /**
+     * BallotNumber for which a promise is being made
+     */
     BallotNum b;
+    /**
+     * The pair MaxVBal and MaxVal - represent the highest numbered
+     * ballot / and its value that was previously voted on
+     */
     Vote v;
 
     public LastVoteMessage(BallotNum b, Vote v) {
@@ -39,7 +48,8 @@ public class LastVoteMessage implements PaxosMessage {
     @Override
     public String toString() {
         return "LastVoteMessage{" +
-                "b=" + b +
+                "type=" + MESSAGE_TYPE +
+                ", b=" + b +
                 ", v=" + v +
                 '}';
     }

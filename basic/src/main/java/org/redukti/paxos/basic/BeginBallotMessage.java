@@ -5,7 +5,12 @@ import org.redukti.paxos.log.api.Decree;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Also Phase2a ACCEPT message
+ */
 public class BeginBallotMessage implements PaxosMessage {
+
+    static final String MESSAGE_TYPE = "ACCEPT (2a)";
 
     final BallotNum b;
     final Decree decree;
@@ -38,7 +43,8 @@ public class BeginBallotMessage implements PaxosMessage {
     @Override
     public String toString() {
         return "BeginBallotMessage{" +
-                "b=" + b +
+                "type=" + MESSAGE_TYPE +
+                ", b=" + b +
                 ", decree=" + decree +
                 '}';
     }

@@ -4,7 +4,12 @@ import org.redukti.paxos.log.api.BallotNum;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Also known as Phase 2b - ACCEPTED message
+ */
 public class VotedMessage implements PaxosMessage {
+
+    static final String MESSAGE_TYPE = "ACCEPTED (2b)";
 
     final BallotNum b;
     final int owner;
@@ -37,7 +42,8 @@ public class VotedMessage implements PaxosMessage {
     @Override
     public String toString() {
         return "VotedMessage{" +
-                "prevBal=" + b +
+                "type=" + MESSAGE_TYPE +
+                ", b=" + b +
                 ", owner=" + owner +
                 '}';
     }
