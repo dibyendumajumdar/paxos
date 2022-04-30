@@ -152,19 +152,19 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     void receiveNextBallot(NextBallotMessage pm) {
         log.info("Received " + pm);
         BallotNum b = pm.b;
-        BallotNum nextBal = ledger.getNextBallot();
-        if (b.compareTo(nextBal) >= 0) {
-            ledger.setNextBallot(b);
-            nextBal = b;
+        BallotNum maxBal = ledger.getMaxBal();
+        if (b.compareTo(maxBal) >= 0) {
+            ledger.setMaxBal(b);
+            maxBal = b;
         }
-        BallotNum prevBal = ledger.getPrevBallot();
-        if (nextBal.compareTo(prevBal) > 0) {
+        BallotNum maxVBal = ledger.getMaxVBal();
+        if (maxBal.compareTo(maxVBal) > 0) {
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
             // less than b that we have cast, or its null if we haven't yet
             // voted in a ballot less than b.
-            Vote v = new Vote(myId, prevBal, ledger.getPrevDec());
+            Vote v = new Vote(myId, maxVBal, ledger.getMaxVal());
             p.sendLastVoteMessage(b, v);
         }
     }
@@ -238,12 +238,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     void receiveBeginBallot(BeginBallotMessage pm) {
         log.info("Received " + pm);
         BallotNum b = pm.b;
-        BallotNum nextBal = ledger.getNextBallot();
-        if (b.equals(nextBal)) {
-            BallotNum prevBal = ledger.getPrevBallot();
-            if (b.compareTo(prevBal) > 0) {
-                ledger.setPrevBallot(b);
-                ledger.setPrevDec(pm.decree);
+        BallotNum maxBal = ledger.getMaxBal();
+        if (b.equals(maxBal)) {
+            BallotNum maxVBal = ledger.getMaxVBal();
+            if (b.compareTo(maxVBal) > 0) {
+                ledger.setMaxVBal(b);
+                ledger.setMaxVal(pm.decree);
                 PaxosParticipant p = findParticipant(b.processNum);
                 p.sendVoted(b, myId);
             }

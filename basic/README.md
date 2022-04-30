@@ -19,9 +19,14 @@ The main changes from the Part-Time Parliament paper are as follows:
 I also noticed some changes in the way `nextBal` / `maxBal` is used - I decided to update the implementation
 to use the later TLA+ spec.
 
-There are also some differences in the description of the algo, I found following [discussion of these differences
-on StackOverflow](https://stackoverflow.com/questions/29880949/contradiction-in-lamports-paxos-made-simple-paper) that 
-seem helpful.
+There are also some differences in the description of the algo between the PTP paper and the TLA+ spec. I found following [discussion of these differences
+on StackOverflow](https://stackoverflow.com/questions/29880949/contradiction-in-lamports-paxos-made-simple-paper) helpful in understanding the differences.
+
+In the original algo as described in PTP paper, Phase2b/Receive BeginBallot, an acceptor responded only if b=maxBal. Hence, that means that the
+acceptors that responded would have voted in Phase1b, else b!=maxBal. Also therefore, Phase2b did not need to update its notion of maxBal.
+
+In the TLA+ spec, in Phase2b, an acceptor responds whenever b>=maxBal. Thus, it can respond even if it never went through Phase1b for b. This requires
+the acceptor to save maxBal=b in Phase2b before responding.
 
 I decided to keep both the PTP algo and the TLA+ algo in the implementation.
 
