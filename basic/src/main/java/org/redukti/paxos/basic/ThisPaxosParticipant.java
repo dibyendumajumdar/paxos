@@ -9,6 +9,7 @@ import org.redukti.paxos.net.api.RequestResponseSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -227,7 +228,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         status = Status.POLLING;
         quorum = prevVotes.stream().map(v -> findParticipant(v.process)).collect(Collectors.toSet());
         voters.clear();
-        Vote maxVote = prevVotes.stream().sorted((a,b) -> b.compareTo(a)).findFirst().get();
+        Vote maxVote = prevVotes.stream().sorted(Comparator.reverseOrder()).findFirst().get();
         Decree maxVoteDecree = maxVote.decree;
         if (maxVoteDecree.isNull()) {
             // Choose client requested value
