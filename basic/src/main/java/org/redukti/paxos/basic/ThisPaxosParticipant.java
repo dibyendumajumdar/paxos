@@ -173,7 +173,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      *   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
      *
      * p12.
-     * Upon receipt of a NextBallot(b) mesage from p with b > nextBal[q],
+     * Upon receipt of a NextBallot(b) message from p with b > nextBal[q],
      * priest q sets nextBal[q] to b and sends a LastVote(b,v) message to p,
      * where v equals prevVote[q]. (A NextBallot(b) message is ignored if b <= nextBal[q].)
      *

@@ -1,7 +1,5 @@
 package org.redukti.paxos.basic;
 
-import ch.qos.logback.classic.AsyncAppender;
-import com.sun.source.tree.ClassTree;
 import org.junit.Assert;
 import org.junit.Test;
 import org.redukti.paxos.log.api.BallotNum;
@@ -94,16 +92,59 @@ public class TestBasicPaxos {
         }
     }
 
+    @Test
+    public void testSingleParticipantQuorum() {
+        Assert.assertEquals(1, me.quorumSize());
+
+        CorrelationId correlationId = new CorrelationId(3, 1);
+        ClientRequestMessage crm = new ClientRequestMessage(correlationId, 42);
+        MockResponseSender responseSender = new MockResponseSender();
+        BallotNum prevTried = ledger.getLastTried();
+        Assert.assertNull(ledger.getOutcome(0));
+        Assert.assertTrue(prevTried.isNull());
+        me.receiveClientRequest(responseSender, crm);
+        Assert.assertEquals(Status.IDLE, me.status);
+        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
+        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
+        Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
+        Assert.assertEquals(1, me.prevVotes.size());
+        Assert.assertTrue(containsVote(me.prevVotes, 0, new BallotNum(-1, 0),
+                new Decree(-1, 0)));
+        Assert.assertEquals(1, me.voters.size());
+        Assert.assertTrue(me.voters.contains(me));
+        Assert.assertEquals(1, me.quorum.size());
+        Assert.assertTrue(me.quorum.contains(me));
+        Assert.assertEquals(1, responseSender.responses.size());
+        prevTried = ledger.getLastTried();
+        crm = new ClientRequestMessage(correlationId, 44);
+        me.receiveClientRequest(responseSender, crm);
+        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
+        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
+        Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
+        Assert.assertEquals(1, me.prevVotes.size());
+        Assert.assertTrue(containsVote(me.prevVotes, 0, prevTried,
+                new Decree(0, 42)));
+        Assert.assertEquals(1, me.voters.size());
+        Assert.assertTrue(me.voters.contains(me));
+        Assert.assertEquals(1, me.quorum.size());
+        Assert.assertTrue(me.quorum.contains(me));
+        Assert.assertEquals(2, responseSender.responses.size());
+        ClientResponseMessage responseMessage = (ClientResponseMessage) PaxosMessages.parseMessage(correlationId, responseSender.responses.get(1));
+        Assert.assertEquals(42, responseMessage.agreedValue); // Value does not change
+    }
+
+
     boolean containsVote(Set<Vote> votes, int process, BallotNum b, Decree d) {
         Vote v = new Vote(process, b, d);
         return votes.contains(v);
     }
 
     static final class MockResponseSender implements RequestResponseSender {
+        List<ByteBuffer> responses = new ArrayList<>();
 
         @Override
         public void setData(ByteBuffer data) {
-
+            responses.add(data);
         }
 
         @Override
