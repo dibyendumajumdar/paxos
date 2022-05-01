@@ -1,14 +1,17 @@
 package org.redukti.paxos.basic;
 
+import ch.qos.logback.classic.AsyncAppender;
+import com.sun.source.tree.ClassTree;
 import org.junit.Assert;
 import org.junit.Test;
 import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
+import org.redukti.paxos.net.api.RequestResponseSender;
+import org.redukti.paxos.net.impl.CorrelationId;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 import static org.junit.Assert.fail;
 
@@ -62,10 +65,86 @@ public class TestBasicPaxos {
         }
     }
 
+    @Test
+    public void testReceiveClientRequest() {
+        List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
+        me.addRemotes(remotes);
+        Assert.assertEquals(2, me.quorumSize());
+
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3,1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
+        BallotNum prevTried = ledger.getLastTried();
+        Assert.assertTrue(prevTried.isNull());
+        me.receiveClientRequest(responseSender, crm);
+        Assert.assertEquals(crm, me.currentRequest);
+        Assert.assertEquals(responseSender, me.currentResponseSender);
+        Assert.assertEquals(Status.TRYING, me.status);
+        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
+        for (MockRemoteParticipant remoteParticipant: remotes) {
+            Assert.assertEquals(1, remoteParticipant.nextBallotMessages.size());
+            Assert.assertEquals(ledger.getLastTried(), remoteParticipant.nextBallotMessages.get(0));
+        }
+        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
+        Assert.assertEquals(1, me.prevVotes.size());
+        Assert.assertTrue(containsVote(me.prevVotes, 0, new BallotNum(-1, 0),
+                new Decree(-1, 0)));
+        // quorum not reached
+        for (MockRemoteParticipant remoteParticipant: remotes) {
+            Assert.assertEquals(0, remoteParticipant.ballotsStarted.size());
+        }
+    }
+
+    boolean containsVote(Set<Vote> votes, int process, BallotNum b, Decree d) {
+        Vote v = new Vote(process, b, d);
+        return votes.contains(v);
+    }
+
+    static final class MockResponseSender implements RequestResponseSender {
+
+        @Override
+        public void setData(ByteBuffer data) {
+
+        }
+
+        @Override
+        public void setErrored(String errorMessage) {
+
+        }
+
+        @Override
+        public void submit() {
+
+        }
+    }
+
+    static final class Pair<T1,T2> {
+        public final T1 first;
+        public final T2 second;
+        public Pair(T1 t1, T2 t2) {
+            this.first = t1;
+            this.second = t2;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Pair<?, ?> pair = (Pair<?, ?>) o;
+            return Objects.equals(first, pair.first) && Objects.equals(second, pair.second);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(first, second);
+        }
+    }
 
     static final class MockRemoteParticipant extends PaxosParticipant {
 
         final int myId;
+        List<BallotNum> nextBallotMessages = new ArrayList<>();
+        List<Pair<BallotNum, Vote>> votes = new ArrayList<>();
+        List<Pair<BallotNum, Decree>> ballotsStarted = new ArrayList<>();
 
         public MockRemoteParticipant(int myId) {
             this.myId = myId;
@@ -78,12 +157,12 @@ public class TestBasicPaxos {
 
         @Override
         public void sendNextBallot(BallotNum b) {
-
+            nextBallotMessages.add(b);
         }
 
         @Override
         public void sendLastVoteMessage(BallotNum b, Vote v) {
-
+            votes.add(new Pair<>(b, v));
         }
 
         @Override

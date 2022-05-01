@@ -70,7 +70,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.add(this);
     }
 
-    public synchronized void addRemotes(List<PaxosParticipant> remoteParticipants) {
+    public synchronized void addRemotes(List<? extends PaxosParticipant> remoteParticipants) {
         Objects.requireNonNull(remoteParticipants);
         if ((remoteParticipants.size()+1)%2 == 0 || remoteParticipants.size() == 0)
             throw new IllegalArgumentException("Number of participants must be odd and greater than 1");
