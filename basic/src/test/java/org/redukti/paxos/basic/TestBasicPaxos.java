@@ -1,7 +1,6 @@
 package org.redukti.paxos.basic;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
@@ -10,6 +9,8 @@ import org.redukti.paxos.log.api.Ledger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.Assert.fail;
 
 public class TestBasicPaxos {
 
@@ -34,7 +35,33 @@ public class TestBasicPaxos {
         Assert.assertEquals(remote2, me.findParticipant(2));
         Assert.assertNotEquals(me, remote1);
         Assert.assertNotEquals(me, remote2);
+        Assert.assertEquals(remote1, new MockRemoteParticipant(remote1.getId()));
+        Assert.assertEquals(2, me.quorumSize());
+        Assert.assertEquals(Status.IDLE, me.status);
     }
+
+    @Test
+    public void testCreateEvenParticipants() {
+        List<PaxosParticipant> remotes = List.of(remote1, remote2, new MockRemoteParticipant(3));
+        try {
+            me.addRemotes(remotes);
+            fail();
+        }
+        catch (IllegalArgumentException e) {
+        }
+    }
+
+    @Test
+    public void testCreateTooFewParticipants() {
+        List<PaxosParticipant> remotes = List.of(remote1);
+        try {
+            me.addRemotes(remotes);
+            fail();
+        }
+        catch (IllegalArgumentException e) {
+        }
+    }
+
 
     static final class MockRemoteParticipant extends PaxosParticipant {
 

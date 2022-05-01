@@ -9,10 +9,7 @@ import org.redukti.paxos.net.api.RequestResponseSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -74,6 +71,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     public synchronized void addRemotes(List<PaxosParticipant> remoteParticipants) {
+        Objects.requireNonNull(remoteParticipants);
+        if ((remoteParticipants.size()+1)%2 == 0 || remoteParticipants.size() == 0)
+            throw new IllegalArgumentException("Number of participants must be odd and greater than 1");
         all.addAll(remoteParticipants);
     }
 
