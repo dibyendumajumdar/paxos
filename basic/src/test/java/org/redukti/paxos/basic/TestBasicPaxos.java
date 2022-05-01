@@ -64,7 +64,7 @@ public class TestBasicPaxos {
     }
 
     @Test
-    public void testReceiveClientRequest() {
+    public void testWithNoPriorBallot() {
         List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
         me.addRemotes(remotes);
         Assert.assertEquals(2, me.quorumSize());
