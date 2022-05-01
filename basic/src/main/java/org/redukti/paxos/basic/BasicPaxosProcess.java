@@ -112,7 +112,15 @@ public class BasicPaxosProcess {
         me = new ThisPaxosParticipant(this);
         eventLoop.startServerChannel(myDef.address, myDef.port, me);
         startConnections();
-        me.addRemotes();
+        me.addRemotes(getRemotes());
+    }
+
+    List<PaxosParticipant> getRemotes() {
+        List<PaxosParticipant> remoteParticipants = new ArrayList<>();
+        for (ProcessChannel p: remoteProcesses) {
+            remoteParticipants.add(new RemotePaxosParticipant(p.id, p));
+        }
+        return remoteParticipants;
     }
 
     void startConnections() {

@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -75,10 +76,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.add(this);
     }
 
-    public synchronized void addRemotes() {
-        for (ProcessChannel p: process.remoteProcesses) {
-            all.add(new RemotePaxosParticipant(p.id, p));
-        }
+    public synchronized void addRemotes(List<PaxosParticipant> remoteParticipants) {
+        all.addAll(remoteParticipants);
     }
 
     PaxosParticipant findParticipant(int owner) {
