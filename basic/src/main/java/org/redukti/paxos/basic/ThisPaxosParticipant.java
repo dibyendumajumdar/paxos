@@ -86,6 +86,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     static final int STPT_2019_TLAPLUS_VERSION = 1;
 
     int version = STPT_2019_TLAPLUS_VERSION;
+    //int version = PART_TIME_PARLIAMENT_VERSION;
 
     public ThisPaxosParticipant(int id, Ledger ledger) {
         this.ledger = ledger;
@@ -343,7 +344,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (b.equals(lastTried) && status == Status.POLLING) {
             PaxosParticipant q = findParticipant(vm.owner);
             voters.add(q);
-            if (voters.containsAll(quorum)) {
+            if (haveQuorumOfVoters()) {
                 Long v = ledger.getOutcome(decree.decreeNum);
                 if (v == null) {
                     ledger.setOutcome(decree.decreeNum, decree.value);
@@ -353,6 +354,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 }
             }
         }
+    }
+
+    boolean haveQuorumOfVoters() {
+        switch (version) {
+            case PART_TIME_PARLIAMENT_VERSION -> { return voters.containsAll(quorum); }
+            case STPT_2019_TLAPLUS_VERSION -> { return voters.size() == quorumSize(); }
+        }
+        return false;
     }
 
     @Override

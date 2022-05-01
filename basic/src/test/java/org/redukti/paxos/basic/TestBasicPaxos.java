@@ -73,6 +73,7 @@ public class TestBasicPaxos {
         MockResponseSender responseSender = new MockResponseSender();
         BallotNum prevTried = ledger.getLastTried();
         Assert.assertTrue(prevTried.isNull());
+        Assert.assertNull(ledger.getOutcome(0));
         me.receiveClientRequest(responseSender, crm);
         Assert.assertEquals(crm, me.currentRequest);
         Assert.assertEquals(responseSender, me.currentResponseSender);
@@ -89,6 +90,32 @@ public class TestBasicPaxos {
         // quorum not reached
         for (MockRemoteParticipant remoteParticipant: remotes) {
             Assert.assertEquals(0, remoteParticipant.ballotsStarted.size());
+        }
+        BallotNum currentballot = ledger.getLastTried();
+        Assert.assertNull(ledger.getOutcome(0));
+        Vote remote1Vote = new Vote(remote1.getId(), new BallotNum(-1,remote1.getId()), new Decree(-1,0));
+        me.receiveLastVote(new LastVoteMessage(currentballot, remote1Vote));
+        Assert.assertEquals(2, me.prevVotes.size());
+        Assert.assertTrue(containsVote(me.prevVotes, remote1Vote.process, remote1Vote.ballotNum, remote1Vote.decree));
+        Assert.assertEquals(1, remote1.ballotsStarted.size());
+        Assert.assertEquals(Status.POLLING, me.status); // still waiting for VotedMessage
+        // now let remote2 return Voted message
+        me.receiveVoted(new VotedMessage(currentballot, remote2.getId()));
+        Assert.assertEquals(2, me.voters.size());
+        Assert.assertTrue(me.quorum.contains(me));
+        Assert.assertTrue(me.quorum.contains(remote1));
+        Assert.assertEquals(2, me.quorum.size());
+        Assert.assertTrue(me.voters.contains(me));
+        Assert.assertTrue(me.voters.contains(remote2));
+        if (me.version == ThisPaxosParticipant.PART_TIME_PARLIAMENT_VERSION) {
+            // not quorum yet as acceptors set not same as those who promised
+            Assert.assertEquals(Status.POLLING, me.status);
+            Assert.assertNull(ledger.getOutcome(0));
+        }
+        else {
+            Assert.assertEquals(Status.IDLE, me.status);
+            Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
+            Assert.assertEquals(1, responseSender.responses.size());
         }
     }
 
@@ -208,7 +235,7 @@ public class TestBasicPaxos {
 
         @Override
         public void sendBeginBallot(BallotNum b, Decree decree) {
-
+            ballotsStarted.add(new Pair<>(b, decree));
         }
 
         @Override
