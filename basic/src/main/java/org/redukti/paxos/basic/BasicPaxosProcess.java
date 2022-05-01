@@ -109,7 +109,7 @@ public class BasicPaxosProcess {
         else {
             ledger = LedgerImpl.createIfNotExisting(logPath, ledgerName, myId);
         }
-        me = new ThisPaxosParticipant(this);
+        me = new ThisPaxosParticipant(myId, ledger);
         eventLoop.startServerChannel(myDef.address, myDef.port, me);
         startConnections();
         me.addRemotes(getRemotes());
