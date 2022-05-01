@@ -70,4 +70,8 @@ public class BallotNum implements Comparable<BallotNum> {
     public boolean isNull() {
         return proposalNumber < 0;
     }
+
+    public int owner() {
+        return processNum;
+    }
 }
