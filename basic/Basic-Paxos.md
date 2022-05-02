@@ -3,7 +3,7 @@
 ## Introduction
 
 This is my attempt to describe the basic paxos algorithm in a programmer friendly way. I try to merge the description in
-Leslie Lamport's Part Time Parliament paper and subsequent TLA+ specification.
+Leslie Lamport's [The Part-Time Parliament](http://lamport.azurewebsites.net/pubs/lamport-paxos.pdf) paper and subsequent [TLA+ specification](https://github.com/tlaplus/Examples/blob/master/specifications/PaxosHowToWinATuringAward/Paxos.pdf).
 
 ## Terms
 
