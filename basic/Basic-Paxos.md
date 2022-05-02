@@ -20,6 +20,7 @@ Leslie Lamport's Part Time Parliament paper and subsequent TLA+ specification.
 ## Functions
 
 * `MaxVote(votes)` - function that returns the max vote cast, where `max()` is based on the ordering of votes by ballot number.
+* `owner(b)` - returns the process id that initiated the ballot number `b`
 
 ## Data Maintained in the Ledger
 
@@ -38,17 +39,17 @@ Leslie Lamport's Part Time Parliament paper and subsequent TLA+ specification.
   * On startup the status is assumed to be `idle`.
 
 * `prevVotes` - the set of votes received in LastVote messages for the current ballot (the one with ballot number in `ledger.lastTried`)
-* `quorum` - the set of processes including `p`, that responded with `LastVote` messages for current ballot, only meaningful when `status=polling`
-* `voters` - the set of processes including `p`, from whom `p` has received `Voted` messages in the current ballot, only meaningful when `status=polling`
-* `decree` - if `status=polling`, then the decree of the current ballot, otherwise meaningless
+* `quorum` - the set of processes including `p`, that responded with `LastVote` messages for current ballot, only meaningful when `status == polling`
+* `voters` - the set of processes including `p`, from whom `p` has received `Voted` messages in the current ballot, only meaningful when `status == polling`
+* `decree` - if `status == polling`, then the decree of the current ballot, otherwise meaningless
 
 ## Messages 
 
 * `NextBallot` - aka PREPARE 1a - message sent by the ballot conductor 
-* `LastVote` - aka PROMISE 1b - message sent by an acceptor process q to conductor p
+* `LastVote` - aka PROMISE 1b - message sent by participant to ballot conductor
 * `BeginBallot` - aka ACCEPT 2a - messages sent by the ballot conductor 
-* `Voted` - aka ACCEPTED 2b - message sent by acceptor process q to conductor p
-* `Success` - message sent by conductor to all process once  ballot is successfully completed
+* `Voted` - aka ACCEPTED 2b - message sent by participant to ballot conductor
+* `Success` - message sent by ballot conductor to all processes once the ballot is successfully completed
 
 The content and timing of each message is described below.
 
@@ -71,10 +72,11 @@ This step is invoked when a new ballot must be started, perhaps on client reques
 
 This is executed by each process that receives the `NextBallot` message.
 
+* Let `b` = `NextBallot.b`.
 * if `b > ledger.maxBal` then
   * Set `ledger.maxBal` to `b`
-  * To the sender of ballot `b`, i.e. `b.process`, send `LastVote` (PROMISE 1b) message with following contents
-    * `owner` - `p.id` (i.e. the id of the process sending the `LastVote`)
+  * To the sender of ballot `b`, i.e. `owner(b)`, send `LastVote` (PROMISE 1b) message with following contents
+    * `voter` - `p.id` (i.e. the id of the process sending the `LastVote`)
     * `v` Vote containing
       * `b` - ballot number
       * `ledger.maxVBal` 
@@ -82,8 +84,8 @@ This is executed by each process that receives the `NextBallot` message.
 
 ### Receive `LastVote(owner,b,v)` PROMISE 1b message
 
-* if `b == ledger.lastTried` and `status=trying` then
-  * Set add vote `v` to the set `prevVotes`. Note that two votes that are from different participants (i.e. `LastVote.owner` is different), must be considered as distinct votes here.
+* if `b == ledger.lastTried` and `status == trying` then
+  * Set add vote `v` to the set `prevVotes`. Note that two votes that are from different participants (i.e. `LastVote.voter` is different), must be considered as distinct votes here.
   * If count of `prevVotes` with ballot `b` is `>=` to `quorumSize` then start polling.
 
 ### Start Polling (Phase 2) - Send `BeginBallot(b,decree)` ACCEPT 2a 
@@ -106,14 +108,14 @@ This is executed by each process that receives the `BeginBallot` message.
   * Set `ledger.maxBal` to `BeginBallot.b`
   * Set `ledger.maxVBal` to `BeginBallot.b`
   * Set `ledger.maxVal` to `BeginBallot.decree`
-  * Send to the owner of ballot `BeginBallot.b` (i.e. `b.process`), `Voted(b, id)` ACCEPTED 2b message where `b` is `ledger.maxBal`, and `id` is the process sending the `Voted` message.
+  * Send to the owner of ballot `BeginBallot.b` (i.e. `owner(BeginBallot.b)`), a `Voted(b, id)` ACCEPTED 2b message where `b` is `ledger.maxBal`, and `id` is the process sending the `Voted` message.
 
-### Receive `Voted(b,id)` ACCEPTED 2b message
+### Receive `Voted(b,voter)` ACCEPTED 2b message
 
 This step is enabled when `status=polling`.
 
-* if `Voted.b==ledger.lastTried` and `status==polling`
-  * Add voter process `Voted.id` to the set of `voters`.
+* if `Voted.b == ledger.lastTried` and `status == polling`
+  * Add voter process `Voted.voter` to the set of `voters`.
   * if count of `voters` is `>=` to `quorumSize` then
     * If `ledger.outcome` is NULL then set `ledger.outcome` to `decree`
     * Send `Success(ledger.outcome)` to all participants, including itself
