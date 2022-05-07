@@ -20,7 +20,6 @@ public class LedgerImpl implements Ledger {
 
     final static Logger log = LoggerFactory.getLogger(LedgerImpl.class);
     public static final int PAGE_SIZE = 8 * 1024;
-    final static int VALUE_SIZE = Long.BYTES + Byte.BYTES;
 
     /**
      * The underlying file object.
@@ -94,6 +93,46 @@ public class LedgerImpl implements Ledger {
     }
 
     Header header;
+
+    static final byte VALUE_UNINITIALISED = 0;
+    static final byte VALUE_COMMITTED = 42;
+    static final byte VALUE_IN_BALLOT = 24;
+
+    static final class Value {
+        final byte status;
+        final long value;
+        final BallotNum maxVBal;
+
+        public static int size() {
+            return Byte.BYTES +
+                    BallotNum.size() +
+                    Long.BYTES;
+        }
+
+        public void store(ByteBuffer bb) {
+            bb.put(status);
+            bb.putLong(value);
+            maxVBal.store(bb);
+        }
+
+        public Value(ByteBuffer bb, int id) {
+            status = bb.get();
+            if (status == VALUE_UNINITIALISED) {
+                maxVBal = new BallotNum(-1, id);
+                value = 0;
+            }
+            else {
+                value = bb.getLong();
+                maxVBal = new BallotNum(bb);
+            }
+        }
+
+        public Value(byte status, BallotNum maxVBal, long value) {
+            this.status = status;
+            this.maxVBal = maxVBal;
+            this.value = value;
+        }
+    }
 
     private LedgerImpl(int id, RandomAccessFile file, String name, String flushMode) {
         this.id = id;
@@ -389,17 +428,20 @@ public class LedgerImpl implements Ledger {
     long getOffsetOf(long decreeNum) {
         if (decreeNum < 0)
             throw new IllegalArgumentException("decree number cannot be < 0");
-        return PAGE_SIZE+decreeNum*(VALUE_SIZE);
+        return PAGE_SIZE+decreeNum*(Value.size());
     }
 
     @Override
     public void setOutcome(long decreeNum, long data) {
+        setValue(decreeNum, new Value(VALUE_COMMITTED, new BallotNum(-1,id), data));
+    }
+
+    public void setValue(long decreeNum, Value v) {
         long offset = getOffsetOf(decreeNum);
-        extend(offset);
-        byte[] bytes = new byte[VALUE_SIZE];
+        //extend(offset);
+        byte[] bytes = new byte[Value.size()];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
-        bb.put((byte)42);
-        bb.putLong(data);
+        v.store(bb);
         write(offset, bytes, 0, bytes.length);
         flush();
     }
@@ -407,7 +449,7 @@ public class LedgerImpl implements Ledger {
     private void extend(long offset) {
         try {
             long length = file.length();
-            if (offset <= length)
+            if (offset < length)
                 return;
             byte[] chunk = new byte[PAGE_SIZE];
             long initial = length%PAGE_SIZE;
@@ -416,7 +458,7 @@ public class LedgerImpl implements Ledger {
                 write(start, chunk, 0, (int) initial);
                 start += initial;
             }
-            while (start < offset) {
+            while (start < chunk.length) {
                 write(start, chunk, 0, chunk.length);
                 start += chunk.length;
             }
@@ -426,24 +468,29 @@ public class LedgerImpl implements Ledger {
         }
     }
 
-    @Override
-    public Long getOutcome(long decreeNum) {
+    public Value getValue(long decreeNum) {
         long offset = getOffsetOf(decreeNum);
         try {
             long length = file.length();
-            if (length < offset+VALUE_SIZE)
-                return null;
+            if (length < offset+Value.size())
+                return new Value(VALUE_UNINITIALISED, new BallotNum(-1,id), 0);
         }
         catch (IOException e) {
             throw new LedgerException("Cannot get length of ledger " + name, e);
         }
-        byte[] bytes = new byte[VALUE_SIZE];
+        byte[] bytes = new byte[Value.size()];
         read(offset, bytes, 0, bytes.length);
         ByteBuffer bb = ByteBuffer.wrap(bytes);
-        byte check = bb.get();
-        if (check != 42)
+        return new Value(bb, id);
+    }
+
+
+    @Override
+    public Long getOutcome(long decreeNum) {
+        Value v = getValue(decreeNum);
+        if (v.status != VALUE_COMMITTED)
             return null;
-        return bb.getLong();
+        return getValue(decreeNum).value;
     }
 
     @Override
@@ -458,25 +505,40 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setPrevBallot(BallotNum ballot) {
-        header.prevBallot = ballot;
-        writeHeader();
+    public void setPrevBallot(BallotNum ballot, long dnum) {
+        Value existingValue = getValue(dnum);
+        Value v;
+        if (existingValue != null) {
+            v = new Value(VALUE_IN_BALLOT, ballot, existingValue.value);
+        }
+        else {
+            v = new Value(VALUE_IN_BALLOT, ballot, 0);
+        }
+        setValue(dnum,v);
     }
 
     @Override
-    public BallotNum getPrevBallot() {
-        return header.prevBallot;
+    public BallotNum getPrevBallot(long dnum) {
+        return getValue(dnum).maxVBal;
     }
 
     @Override
-    public void setPrevDec(Decree decree) {
-        header.prevDecree = decree;
-        writeHeader();
+    public void setPrevDec(Decree decree, long dnum) {
+        Value existingValue = getValue(dnum);
+        Value v;
+        if (existingValue != null) {
+            v = new Value(VALUE_IN_BALLOT, existingValue.maxVBal, decree.value);
+        }
+        else {
+            // doesn't make sense
+            v = new Value(VALUE_IN_BALLOT, new BallotNum(-1, id), decree.value);
+        }
+        setValue(dnum,v);
     }
 
     @Override
-    public Decree getPrevDec() {
-        return header.prevDecree;
+    public Decree getPrevDec(long dnum) {
+        return new Decree(dnum, getValue(dnum).value);
     }
 
     @Override

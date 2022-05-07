@@ -35,28 +35,36 @@ public interface Ledger extends AutoCloseable {
      * Sets the number of the last ballot in which p voted
      * Also known as MaxVBal
      */
-    void setPrevBallot(BallotNum ballot);
-    default void setMaxVBal(BallotNum ballot) { setPrevBallot(ballot); }
+    void setPrevBallot(BallotNum ballot, long dnum);
+    default void setPrevBallot(BallotNum ballot) { setPrevBallot(ballot, 0); }
+    default void setMaxVBal(BallotNum ballot, long dnum) { setPrevBallot(ballot, dnum); }
+    default void setMaxVBal(BallotNum ballot) { setMaxVBal(ballot, 0); }
     /**
      * The number of the last ballot in which p voted, or BallotNum.MINUS_INFINITY if p never voted
      * Also known as MaxVBal
      */
-    BallotNum getPrevBallot();
-    default BallotNum getMaxVBal() { return getPrevBallot(); }
+    BallotNum getPrevBallot(long dnum);
+    default BallotNum getPrevBallot() { return getPrevBallot(0); }
+    default BallotNum getMaxVBal(long dnum) { return getPrevBallot(dnum); }
+    default BallotNum getMaxVBal() { return getMaxVBal(0); }
 
     /**
      * The decree for which p last voted
      * Also known as MaxVal
      */
-    void setPrevDec(Decree decree);
-    default void setMaxVal(Decree decree) { setPrevDec(decree); }
+    void setPrevDec(Decree decree, long dnum);
+    default void setPrevDec(Decree decree) { setPrevDec(decree, 0); }
+    default void setMaxVal(Decree decree, long dnum) { setPrevDec(decree, dnum); }
+    default void setMaxVal(Decree decree) { setMaxVal(decree, 0); }
 
     /**
      * The decree for which p last voted, or null if p never voted
      * Also known as MaxVal
      */
-    Decree getPrevDec();
-    default Decree getMaxVal() { return getPrevDec(); }
+    Decree getPrevDec(long dnum);
+    default Decree getPrevDec() { return getPrevDec(0); }
+    default Decree getMaxVal(long dnum) { return getPrevDec(dnum); }
+    default Decree getMaxVal() { return getMaxVal(0); }
 
     /**
      * The number of the last ballot in which p agreed to participate

@@ -18,7 +18,7 @@ public class TestLedger {
     static final String BASE_PATH = "ledger";
     static final int ID = 1;
     static final BallotNum NEG_INF = new BallotNum(-1, ID);
-    static final Decree NULL_DECREE = new Decree(-1, 0);
+    static final Decree NULL_DECREE = new Decree(0, 0);
 
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -31,7 +31,7 @@ public class TestLedger {
         try (Ledger ledger = LedgerImpl.createIfNotExisting(basePath, "l1", ID)) {
             Assert.assertNotNull(ledger);
         }
-        checkSize(new File(basePath,"l1"), 1);
+        checkSize(new File(basePath,"l1"), 0);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
             Assert.assertEquals(NEG_INF, ledger.getNextBallot());
             Assert.assertEquals(NEG_INF, ledger.getLastTried());
@@ -55,26 +55,26 @@ public class TestLedger {
             Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree, ledger.getPrevDec());
+            Assert.assertEquals(secondDecree.value, ledger.getPrevDec().value);
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
-        checkSize(new File(basePath,"l1"), 2);
+        checkSize(new File(basePath,"l1"), 3);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
             Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(firstBallot, ledger.getPrevBallot());
             Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
             Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree, ledger.getPrevDec());
+            Assert.assertEquals(secondDecree.value, ledger.getPrevDec().value);
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
         }
-        checkSize(new File(basePath,"l1"), 2);
+        checkSize(new File(basePath,"l1"), 3);
     }
 
-    private void checkSize(File file, int pages) throws IOException {
-        long expectedSize = pages*LedgerImpl.PAGE_SIZE;
+    private void checkSize(File file, int outcomes) throws IOException {
+        long expectedSize = LedgerImpl.Value.size()*outcomes + LedgerImpl.PAGE_SIZE;
         long actualSize = Files.size(Path.of(file.getPath()));
         Assert.assertEquals(expectedSize, actualSize);
     }
