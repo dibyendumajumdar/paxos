@@ -57,38 +57,34 @@ public class LedgerImpl implements Ledger {
     static final class Header {
         final int id;
         BallotNum lastTried;
-        BallotNum prevBallot;
-        Decree prevDecree;
         BallotNum lastBallot;
+        long commitNum;
 
         public static int size() {
             return Integer.BYTES +
-                    BallotNum.size() * 3 +
-                    Decree.size();
+                    BallotNum.size() * 2 +
+                    Long.BYTES;
         }
 
         public void store(ByteBuffer bb) {
             bb.putInt(id);
             lastTried.store(bb);
-            prevBallot.store(bb);
-            prevDecree.store(bb);
             lastBallot.store(bb);
+            bb.putLong(commitNum);
         }
 
         public Header(ByteBuffer bb) {
             id = bb.getInt();
             lastTried = new BallotNum(bb);
-            prevBallot = new BallotNum(bb);
-            prevDecree = new Decree(bb);
             lastBallot = new BallotNum(bb);
+            commitNum = bb.getLong();
         }
 
-        public Header(int id, BallotNum lastTried, BallotNum prevBallot, Decree prevDecree, BallotNum lastBallot) {
+        public Header(int id, BallotNum lastTried, BallotNum lastBallot, long commitNum) {
             this.id = id;
             this.lastTried = lastTried;
-            this.prevBallot = prevBallot;
-            this.prevDecree = prevDecree;
             this.lastBallot = lastBallot;
+            this.commitNum = commitNum;
         }
     }
 
@@ -305,8 +301,7 @@ public class LedgerImpl implements Ledger {
         return new Header(id,
                 new BallotNum(-1, id),
                 new BallotNum(-1, id),
-                new Decree(-1, 0),
-                new BallotNum(-1, id));
+                -1);
     }
 
     LedgerImpl readHeader(int id) {
@@ -434,11 +429,14 @@ public class LedgerImpl implements Ledger {
     @Override
     public void setOutcome(long decreeNum, long data) {
         setValue(decreeNum, new Value(VALUE_COMMITTED, new BallotNum(-1,id), data));
+        if (header.commitNum < decreeNum) {
+            header.commitNum = decreeNum;
+            writeHeader();
+        }
     }
 
     public void setValue(long decreeNum, Value v) {
         long offset = getOffsetOf(decreeNum);
-        //extend(offset);
         byte[] bytes = new byte[Value.size()];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         v.store(bb);
@@ -528,5 +526,10 @@ public class LedgerImpl implements Ledger {
     @Override
     public BallotNum getNextBallot() {
         return header.lastBallot;
+    }
+
+    @Override
+    public long getCommitNum() {
+        return header.commitNum;
     }
 }

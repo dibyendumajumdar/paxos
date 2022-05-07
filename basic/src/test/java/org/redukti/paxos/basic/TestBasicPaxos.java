@@ -258,6 +258,7 @@ public class TestBasicPaxos {
         BallotNum prevBal;
         Decree prevDecree;
         BallotNum nextBal;
+        long commitNum;
 
         public MockLedger(int id) {
             this.id = id;
@@ -265,11 +266,15 @@ public class TestBasicPaxos {
             this.prevBal = new BallotNum(-1, id);
             this.prevDecree = new Decree(-1, 0);
             this.nextBal = new BallotNum(-1, id);
+            this.commitNum = -1;
         }
 
         @Override
         public void setOutcome(long decreeNum, long data) {
             outcomes.put(decreeNum, data);
+            if (decreeNum > commitNum) {
+                commitNum = decreeNum;
+            }
         }
 
         @Override
@@ -315,6 +320,11 @@ public class TestBasicPaxos {
 
         @Override
         public void close() {
+        }
+
+        @Override
+        public long getCommitNum() {
+            return commitNum;
         }
     }
 }

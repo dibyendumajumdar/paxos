@@ -32,13 +32,13 @@ public interface Ledger extends AutoCloseable {
     BallotNum getLastTried();
 
     /**
-     * Sets the number of the last ballot in which p voted
-     * Also known as MaxVBal
+     * Sets the number of the last ballot in which p voted, as well as the value voted for
+     * Also known as MaxVBal and MaxVal
      */
     void setPrevBallot(BallotNum ballot, long dnum, long value);
-    default void setPrevBallot(BallotNum ballot, long value) { setPrevBallot(ballot, 0, value); }
-    default void setMaxVBal(BallotNum ballot, long dnum, long value) { setPrevBallot(ballot, dnum, value); }
-    default void setMaxVBal(BallotNum ballot, long value) { setMaxVBal(ballot, 0, value); }
+    default void setPrevBallot(BallotNum ballot, long maxVal) { setPrevBallot(ballot, 0, maxVal); }
+    default void setMaxVBal(BallotNum ballot, long dnum, long maxVal) { setPrevBallot(ballot, dnum, maxVal); }
+    default void setMaxVBal(BallotNum ballot, long maxVal) { setMaxVBal(ballot, 0, maxVal); }
     /**
      * The number of the last ballot in which p voted, or BallotNum.MINUS_INFINITY if p never voted
      * Also known as MaxVBal
@@ -47,15 +47,6 @@ public interface Ledger extends AutoCloseable {
     default BallotNum getPrevBallot() { return getPrevBallot(0); }
     default BallotNum getMaxVBal(long dnum) { return getPrevBallot(dnum); }
     default BallotNum getMaxVBal() { return getMaxVBal(0); }
-
-    /**
-     * The decree for which p last voted
-     * Also known as MaxVal
-     */
-//    void setPrevDec(Decree decree, long dnum);
-//    default void setPrevDec(Decree decree) { setPrevDec(decree, 0); }
-//    default void setMaxVal(Decree decree, long dnum) { setPrevDec(decree, dnum); }
-//    default void setMaxVal(Decree decree) { setMaxVal(decree, 0); }
 
     /**
      * The decree for which p last voted, or null if p never voted
@@ -80,4 +71,9 @@ public interface Ledger extends AutoCloseable {
      */
     BallotNum getNextBallot();
     default BallotNum getMaxBal() { return getNextBallot(); }
+
+    /**
+     * The most recent decree number that was committed
+     */
+    long getCommitNum();
 }
