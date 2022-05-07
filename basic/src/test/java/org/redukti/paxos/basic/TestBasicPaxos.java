@@ -288,18 +288,14 @@ public class TestBasicPaxos {
         }
 
         @Override
-        public void setPrevBallot(BallotNum ballot, long dnum) {
+        public void setPrevBallot(BallotNum ballot, long dnum, long value) {
             prevBal = ballot;
+            prevDecree = new Decree(dnum, value);
         }
 
         @Override
         public BallotNum getPrevBallot(long dnum) {
             return prevBal;
-        }
-
-        @Override
-        public void setPrevDec(Decree decree, long dnum) {
-            prevDecree = decree;
         }
 
         @Override

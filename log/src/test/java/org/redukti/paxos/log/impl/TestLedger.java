@@ -44,11 +44,10 @@ public class TestLedger {
         Decree secondDecree = new Decree(secondBallot.proposalNumber, 103);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
             ledger.setNextBallot(secondBallot);
-            ledger.setPrevBallot(firstBallot);
+            ledger.setPrevBallot(firstBallot, secondDecree.value);
             ledger.setLastTried(secondBallot);
             ledger.setOutcome(firstDecree.decreeNum, firstDecree.value);
             ledger.setOutcome(secondDecree.decreeNum, secondDecree.value);
-            ledger.setPrevDec(secondDecree);
 
             Assert.assertEquals(secondBallot, ledger.getNextBallot());
             Assert.assertEquals(firstBallot, ledger.getPrevBallot());

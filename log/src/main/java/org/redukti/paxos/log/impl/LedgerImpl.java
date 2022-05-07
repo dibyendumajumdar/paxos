@@ -505,35 +505,13 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setPrevBallot(BallotNum ballot, long dnum) {
-        Value existingValue = getValue(dnum);
-        Value v;
-        if (existingValue != null) {
-            v = new Value(VALUE_IN_BALLOT, ballot, existingValue.value);
-        }
-        else {
-            v = new Value(VALUE_IN_BALLOT, ballot, 0);
-        }
-        setValue(dnum,v);
+    public void setPrevBallot(BallotNum ballot, long dnum, long value) {
+        setValue(dnum,new Value(VALUE_IN_BALLOT, ballot, value));
     }
 
     @Override
     public BallotNum getPrevBallot(long dnum) {
         return getValue(dnum).maxVBal;
-    }
-
-    @Override
-    public void setPrevDec(Decree decree, long dnum) {
-        Value existingValue = getValue(dnum);
-        Value v;
-        if (existingValue != null) {
-            v = new Value(VALUE_IN_BALLOT, existingValue.maxVBal, decree.value);
-        }
-        else {
-            // doesn't make sense
-            v = new Value(VALUE_IN_BALLOT, new BallotNum(-1, id), decree.value);
-        }
-        setValue(dnum,v);
     }
 
     @Override

@@ -305,8 +305,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveBeginBallotEnabled(b, maxBal)) {
-            ledger.setMaxVBal(b);
-            ledger.setMaxVal(pm.decree);
+            ledger.setMaxVBal(b, pm.decree.value);
             PaxosParticipant p = findParticipant(b.processNum);
             p.sendVoted(b, myId);
         }

@@ -35,10 +35,10 @@ public interface Ledger extends AutoCloseable {
      * Sets the number of the last ballot in which p voted
      * Also known as MaxVBal
      */
-    void setPrevBallot(BallotNum ballot, long dnum);
-    default void setPrevBallot(BallotNum ballot) { setPrevBallot(ballot, 0); }
-    default void setMaxVBal(BallotNum ballot, long dnum) { setPrevBallot(ballot, dnum); }
-    default void setMaxVBal(BallotNum ballot) { setMaxVBal(ballot, 0); }
+    void setPrevBallot(BallotNum ballot, long dnum, long value);
+    default void setPrevBallot(BallotNum ballot, long value) { setPrevBallot(ballot, 0, value); }
+    default void setMaxVBal(BallotNum ballot, long dnum, long value) { setPrevBallot(ballot, dnum, value); }
+    default void setMaxVBal(BallotNum ballot, long value) { setMaxVBal(ballot, 0, value); }
     /**
      * The number of the last ballot in which p voted, or BallotNum.MINUS_INFINITY if p never voted
      * Also known as MaxVBal
@@ -52,10 +52,10 @@ public interface Ledger extends AutoCloseable {
      * The decree for which p last voted
      * Also known as MaxVal
      */
-    void setPrevDec(Decree decree, long dnum);
-    default void setPrevDec(Decree decree) { setPrevDec(decree, 0); }
-    default void setMaxVal(Decree decree, long dnum) { setPrevDec(decree, dnum); }
-    default void setMaxVal(Decree decree) { setMaxVal(decree, 0); }
+//    void setPrevDec(Decree decree, long dnum);
+//    default void setPrevDec(Decree decree) { setPrevDec(decree, 0); }
+//    default void setMaxVal(Decree decree, long dnum) { setPrevDec(decree, dnum); }
+//    default void setMaxVal(Decree decree) { setMaxVal(decree, 0); }
 
     /**
      * The decree for which p last voted, or null if p never voted
