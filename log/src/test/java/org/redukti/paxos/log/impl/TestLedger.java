@@ -51,9 +51,11 @@ public class TestLedger {
             ledger.setOutcome(d4.decreeNum, d4.value);
             Assert.assertEquals(d4.value, ledger.getOutcome(d4.decreeNum).longValue());
             Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            checkSize(new File(basePath,"l1"), 4);
         }
 
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
+            checkSize(new File(basePath,"l1"), 4);
             Assert.assertEquals(d1.value, ledger.getOutcome(d1.decreeNum).longValue());
             Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
             Assert.assertEquals(d3.value, ledger.getOutcome(d3.decreeNum).longValue());
@@ -66,6 +68,7 @@ public class TestLedger {
             ledger.setOutcome(d5.decreeNum, d5.value);
             Assert.assertEquals(d5.value, ledger.getOutcome(d5.decreeNum).longValue());
             Assert.assertEquals(d5.decreeNum, ledger.getCommitNum());
+            checkSize(new File(basePath,"l1"), 5);
         }
 
     }
@@ -89,7 +92,7 @@ public class TestLedger {
     }
 
     @Test
-    public void testCreate() throws Exception {
+    public void testUndecidedBallots() throws Exception {
 
         File file = temporaryFolder.newFolder(BASE_PATH);
         String basePath = file.getPath();
@@ -97,39 +100,45 @@ public class TestLedger {
             Assert.assertNotNull(ledger);
         }
         checkInvariantsForNewLedger(basePath);
-        BallotNum firstBallot = new BallotNum(1, ID);
-        Decree firstDecree = new Decree(firstBallot.proposalNumber, 101);
-        BallotNum secondBallot = new BallotNum(2, ID);
-        Decree secondDecree = new Decree(secondBallot.proposalNumber, 103);
+        BallotNum b1 = new BallotNum(1, ID);
+        Decree d1 = new Decree(0, 101);
+        BallotNum b2 = new BallotNum(2, ID);
+        Decree d2 = new Decree(1, 103);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            ledger.setNextBallot(secondBallot);
-            ledger.setPrevBallot(firstBallot, secondDecree.value);
-            ledger.setLastTried(secondBallot);
-            ledger.setOutcome(firstDecree.decreeNum, firstDecree.value);
-            ledger.setOutcome(secondDecree.decreeNum, secondDecree.value);
+            ledger.setMaxVBal(b1, d1.decreeNum, d1.value);
+            Assert.assertEquals(1, ledger.getUndecidedBallots().size());
+            Assert.assertEquals(d1, ledger.getUndecidedBallots().get(0).decree);
+            Assert.assertEquals(b1, ledger.getUndecidedBallots().get(0).b);
+            Assert.assertEquals(b1, ledger.getMaxVBal());
+            Assert.assertEquals(d1, ledger.getMaxVal());
+            ledger.setMaxVBal(b2, d2.decreeNum, d2.value);
+            Assert.assertEquals(2, ledger.getUndecidedBallots().size());
+            Assert.assertEquals(d1, ledger.getUndecidedBallots().get(0).decree);
+            Assert.assertEquals(b1, ledger.getUndecidedBallots().get(0).b);
+            Assert.assertEquals(b1, ledger.getMaxVBal());
+            Assert.assertEquals(d1, ledger.getMaxVal());
+            Assert.assertEquals(d2, ledger.getUndecidedBallots().get(1).decree);
+            Assert.assertEquals(b2, ledger.getUndecidedBallots().get(1).b);
+            Assert.assertEquals(-1, ledger.getCommitNum());
 
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
-            Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree.value, ledger.getPrevDec().value);
-            Assert.assertNull(ledger.getOutcome(0));
-            Assert.assertNull(ledger.getOutcome(3));
+            ledger.setLastTried(b2);
+            Assert.assertEquals(b2, ledger.getLastTried());
+
+            Assert.assertEquals(2, ledger.getUndecidedBallots().size());
+            Assert.assertEquals(d1, ledger.getUndecidedBallots().get(0).decree);
+            Assert.assertEquals(b1, ledger.getUndecidedBallots().get(0).b);
+            Assert.assertEquals(b1, ledger.getMaxVBal());
+            Assert.assertEquals(d1, ledger.getMaxVal());
+            Assert.assertEquals(d2, ledger.getUndecidedBallots().get(1).decree);
+            Assert.assertEquals(b2, ledger.getUndecidedBallots().get(1).b);
+            Assert.assertEquals(-1, ledger.getCommitNum());
+
+            ledger.setOutcome(d1.decreeNum, d1.value);
+            Assert.assertEquals(1, ledger.getUndecidedBallots().size());
+            Assert.assertEquals(d2, ledger.getUndecidedBallots().get(1).decree);
+            Assert.assertEquals(b2, ledger.getUndecidedBallots().get(1).b);
+            Assert.assertEquals(0, ledger.getCommitNum());
         }
-        checkSize(new File(basePath,"l1"), 3);
-        try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(firstBallot, ledger.getPrevBallot());
-            Assert.assertEquals(secondBallot, ledger.getNextBallot());
-            Assert.assertEquals(Long.valueOf(firstDecree.value), ledger.getOutcome(firstDecree.decreeNum));
-            Assert.assertEquals(Long.valueOf(secondDecree.value), ledger.getOutcome(secondDecree.decreeNum));
-            Assert.assertEquals(secondDecree.value, ledger.getPrevDec().value);
-            Assert.assertNull(ledger.getOutcome(0));
-            Assert.assertNull(ledger.getOutcome(3));
-            List<BallotedDecree> ballotedDecrees = ledger.getUndecidedBallots();
-            Assert.assertEquals(1, ballotedDecrees.size());
-        }
-        checkSize(new File(basePath,"l1"), 3);
+        checkSize(new File(basePath,"l1"), 2);
     }
 }
