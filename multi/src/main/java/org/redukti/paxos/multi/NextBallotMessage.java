@@ -45,21 +45,29 @@ public class NextBallotMessage implements PaxosMessage {
      */
     final long cnum;
 
-    public NextBallotMessage(BallotNum b, long cnum) {
+    /**
+     * Sender id;
+     */
+    final int id;
+
+    public NextBallotMessage(BallotNum b, int id, long cnum) {
         this.b = b;
+        this.id = id;
         this.cnum = cnum;
     }
 
     public NextBallotMessage(ByteBuffer bb) {
         this.b = new BallotNum(bb);
+        this.id = bb.getInt();
         this.cnum = bb.getLong();
     }
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + BallotNum.size() + Long.BYTES);
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + BallotNum.size() + Integer.BYTES + Long.BYTES);
         bb.putShort((short) getCode());
         b.store(bb);
+        bb.putInt(id);
         bb.putLong(cnum);
         bb.flip();
         return bb;
@@ -75,6 +83,8 @@ public class NextBallotMessage implements PaxosMessage {
         return "NextBallotMessage{" +
                 "type=" + MESSAGE_TYPE +
                 ", b=" + b +
+                ", id=" + id +
+                ", cnum=" + cnum +
                 '}';
     }
 }

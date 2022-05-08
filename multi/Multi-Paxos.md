@@ -18,7 +18,7 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `Vote (v)` - a vote cast by a process, is a tuple containing the process id of the voter, the ballot number, and the decree being voted. Votes are ordered by ballot numbers.
 * `Ledger` - each process must maintain some data in persistent storage - the ledger represents the storage data structure.
 * `quorumSize` - `(Number of Participants + 1) / 2`, where Number of participants is an odd number.
-* `commitnum` - The last committed `dnum`.
+* `commitNum` - The last committed `dnum`.
 
 ## Functions
 
@@ -32,7 +32,7 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `maxBal` - The maximum ballot number that process `p` ever agreed to participate in, or `(-1,p.id)` if `p` has never agreed to participate in a ballot.
 * `maxVBal(dnum)` - The ballot number in which `p` last voted or `(-1,p.id)` if `p` never voted, for decree numbered `dnum`.
 * `maxVal(dnum)` - The value of the decree associated with `maxVBal`, i.e. the decree that `p` last voted, or NULL if `p` never voted, for decree numbered `dnum`.
-* `commitnum` - Decree number of last committed decree
+* `commitNum` - Decree number of last committed decree
 
 ## Data Maintained by a Process p in memory
 
@@ -71,7 +71,7 @@ This step is invoked when a new ballot must be started, perhaps on client reques
 * Set `ledger.lastTried` to `b`.
 * Set `p.status` to `trying`.
 * Set `p.prevVotes` to empty set.
-* To each process participating in multi paxos, send `NextBallot(ledger.lastTried, commitnum)` PREPARE 1a message, including to itself.
+* To each process participating in multi paxos, send `NextBallot(ledger.lastTried, ledger.commitNum)` PREPARE 1a message, including to itself.
 
 If process `p` has all decrees with numbers less than or equal to `commitnum` then he sends a `NextBallot(b,commitnum)` message in all instances of the 
 Synod protocol for decree numbers larger than `commitnum`.
@@ -92,7 +92,7 @@ This is executed by each process `q` that receives the `NextBallot` message.
         * `dnum`
         * `ledger.maxVBal(dnum)` 
         * `ledger.maxVal(dnum)`
-    * Set `commitnum` to `ledger.commitnum`.
+    * Set `commitNum` to `ledger.commitNum`.
     
 In his response to the `NextBallot` message, `q` informs `p` of all decrees numbered greater than `commitnum` that already appear in q's ledger
 (in addition to sending the usual `LastVote` information for decrees not in his ledger), and he asks `p` to send him any decrees numbered `commitnum` or

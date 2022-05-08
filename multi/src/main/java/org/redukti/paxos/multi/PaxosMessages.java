@@ -51,9 +51,9 @@ public class PaxosMessages {
 //            case VOTED_MESSAGE: {
 //                return new VotedMessage(bb);
 //            }
-//            case SUCCESS_MESSAGE: {
-//                return new SuccessMessage(bb);
-//            }
+            case SUCCESS_MESSAGE: {
+                return new SuccessMessage(bb);
+            }
             case CLIENT_REQUEST_MESSAGE: {
                 return new ClientRequestMessage(correlationId, bb);
             }

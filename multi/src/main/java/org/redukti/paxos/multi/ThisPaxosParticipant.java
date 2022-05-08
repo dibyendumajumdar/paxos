@@ -159,34 +159,32 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public void sendNextBallot(BallotNum b, long cnum) {
-        //receiveNextBallot(new NextBallotMessage(b));
+        receiveNextBallot(new NextBallotMessage(b,myId,cnum));
     }
 
     /**
-     * Also known as Phase1b(a)
-     * Some conflicting description in PTP:
-     * p26.
-     * Receive NextBallot (b) Message
-     * If b ≥ nextBal [p] then
-     * – Set nextBal [p] to b.
-     * Send LastVote Message
-     * Enabled whenever nextBal[p] > prevBal [p].
-     * – Send a LastVote(nextBal [p], v) message to priest owner(nextBal [p]), where
-     *   vpst = p, vbal = prevBal [p], and vdec = prevDec[p].
-     *
-     * p12.
-     * Upon receipt of a NextBallot(b) message from p with b > nextBal[q],
-     * priest q sets nextBal[q] to b and sends a LastVote(b,v) message to p,
-     * where v equals prevVote[q]. (A NextBallot(b) message is ignored if b <= nextBal[q].)
-     *
-     * From PMS paper:
-     * Upon receipt of a ballot b phase 1a message, acceptor a can perform
-     * a Phase1b(a) action only if b > maxBal[a]. The action sets maxBal[a] to b
-     * and sends a phase 1b message to the leader containing the values of
-     * maxVBal[a] and maxVal[a].
+     * If the next ballot sender has commitnum < ledger.commitnum then
+     * send an update
      */
+    void updateNextBallotSender(NextBallotMessage pm) {
+        if (pm.cnum < ledger.getCommitNum()) {
+            ArrayList<Decree> decrees = new ArrayList<>();
+            for (long cnum = pm.cnum+1; cnum < ledger.getCommitNum(); cnum++) {
+                Long outcome = ledger.getOutcome(cnum);
+                if (outcome != null) {
+                    decrees.add(new Decree(cnum, outcome));
+                }
+            }
+            if (decrees.size() > 0) {
+                PaxosParticipant p = findParticipant(pm.id);
+                p.sendSuccess(decrees.toArray(new Decree[decrees.size()]));
+            }
+        }
+    }
+
     void receiveNextBallot(NextBallotMessage pm) {
-//        log.info("Received " + pm);
+        log.info("Received " + pm);
+        updateNextBallotSender(pm);
 //        BallotNum b = pm.b;
 //        BallotNum maxBal = ledger.getMaxBal();
 //        if (receiveNextBallotEnabled(b, maxBal)) {
@@ -364,17 +362,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 //        return false;
 //    }
 //
-//    @Override
-//    public void sendSuccess(Decree decree) {
-//        receiveSuccess(new SuccessMessage(decree));
-//    }
-//
-//    void receiveSuccess(SuccessMessage sm) {
-//        log.info("Received " + sm);
-//        Long v = ledger.getOutcome(sm.decree.decreeNum);
-//        if (v == null) {
-//            ledger.setOutcome(sm.decree.decreeNum, sm.decree.value);
-//        }
+    @Override
+    public void sendSuccess(Decree[] decrees) {
+        receiveSuccess(new SuccessMessage(decrees));
+    }
+
+    void receiveSuccess(SuccessMessage sm) {
+        log.info("Received " + sm);
+        for (int i = 0; i < sm.decree.length; i++) {
+            Decree d = sm.decree[i];
+            Long v = ledger.getOutcome(d.decreeNum);
+            if (v == null) {
+                ledger.setOutcome(d.decreeNum, d.value);
+            }
+        }
+        // FIXME - outcome need to be matched to the assigned dnum
 //        ClientRequestMessage crm = currentRequest;
 //        if (crm != null) {
 //            ClientResponseMessage rm = new ClientResponseMessage(v);
@@ -383,8 +385,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 //            currentResponseSender = null;
 //            currentRequest = null;
 //        }
-//        status = Status.IDLE;
-//    }
+        status = Status.IDLE;
+    }
 
     @Override
     public synchronized void handleRequest(Message request, RequestResponseSender responseSender) {
@@ -401,9 +403,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 //        else if (pm instanceof VotedMessage) {
 //            receiveVoted((VotedMessage) pm);
 //        }
-//        else if (pm instanceof SuccessMessage) {
-//            receiveSuccess((SuccessMessage) pm);
-//        }
+        else if (pm instanceof SuccessMessage) {
+            receiveSuccess((SuccessMessage) pm);
+        }
         else if (pm instanceof ClientRequestMessage) {
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
         }

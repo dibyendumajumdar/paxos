@@ -23,43 +23,49 @@
  */
 package org.redukti.paxos.multi;
 
-import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 
-import java.util.Objects;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
-public abstract class PaxosParticipant {
+public class SuccessMessage implements PaxosMessage {
 
-    /**
-     * Each PaxosParticipant has an id that marks its position in the
-     * process array
-     */
-    public abstract int getId();
+    final Decree[] decree;
 
-    // equivalent to phase 1 (a) prepare request
-    public abstract void sendNextBallot(BallotNum b, long cnum);
+    public SuccessMessage(Decree[] decree) {
+        this.decree = decree;
+    }
 
-    // equivalent to phase 1 (b) promise message
-    //public abstract void sendLastVoteMessage(BallotNum b, Vote v);
-
-    // equivalent to phase 2 (a) accept request
-    //public abstract void sendBeginBallot(BallotNum b, Decree decree);
-
-    // equivalent to phase 2 (b) accepted message
-    //public abstract void sendVoted(BallotNum prevBal, int id);
-
-    public abstract void sendSuccess(Decree[] decrees);
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId());
+    public SuccessMessage(ByteBuffer bb) {
+        int n = bb.getInt();
+        this.decree = new Decree[n];
+        for (int i = 0; i < n; i++) {
+            this.decree[i] = new Decree(bb);
+        }
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PaxosParticipant p = (PaxosParticipant) o;
-        return getId() == p.getId();
+    public ByteBuffer serialize() {
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+Integer.BYTES+decree.length*Decree.size());
+        bb.putShort((short)getCode());
+        bb.putInt(decree.length);
+        for (int i = 0; i < decree.length; i++) {
+            Decree d = decree[i];
+            d.store(bb);
+        }
+        bb.flip();
+        return bb;
+    }
+
+    @Override
+    public int getCode() {
+        return PaxosMessages.SUCCESS_MESSAGE;
+    }
+
+    @Override
+    public String toString() {
+        return "SuccessMessage{" +
+                "decree[]=" + Arrays.asList(decree) +
+                '}';
     }
 }
