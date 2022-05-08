@@ -87,12 +87,6 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     volatile ClientRequestMessage currentRequest;
     volatile RequestResponseSender currentResponseSender;
 
-    static final int PART_TIME_PARLIAMENT_VERSION = 0;
-    static final int STPT_2019_TLAPLUS_VERSION = 1;
-
-    int version = STPT_2019_TLAPLUS_VERSION;
-    //int version = PART_TIME_PARLIAMENT_VERSION;
-
     public ThisPaxosParticipant(int id, Ledger ledger) {
         this.ledger = ledger;
         this.myId = id;
