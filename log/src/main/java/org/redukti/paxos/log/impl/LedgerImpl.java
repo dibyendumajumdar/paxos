@@ -432,7 +432,7 @@ public class LedgerImpl implements Ledger {
         // We want to ensure that commitNum tracks the lowest consecutive committed decree
         // If we see the next decree is committed, we increment it but we need to also see
         // if we can advance even more
-        if (header.commitNum == decreeNum+1) {
+        if (header.commitNum+1 == decreeNum) {
             header.commitNum = decreeNum;
             for (long i = header.commitNum+1; i <= getLastDnum(); i++) {
                 Value v = getValue(i);
@@ -456,28 +456,6 @@ public class LedgerImpl implements Ledger {
         flush();
     }
 
-    private void extend(long offset) {
-        try {
-            long length = file.length();
-            if (offset < length)
-                return;
-            byte[] chunk = new byte[PAGE_SIZE];
-            long initial = length%PAGE_SIZE;
-            long start = length;
-            if (initial > 0) {
-                write(start, chunk, 0, (int) initial);
-                start += initial;
-            }
-            while (start < chunk.length) {
-                write(start, chunk, 0, chunk.length);
-                start += chunk.length;
-            }
-        }
-        catch (IOException e) {
-            throw new LedgerException("Error extending ledger " + name);
-        }
-    }
-
     public Value getValue(long decreeNum) {
         long offset = getOffsetOf(decreeNum);
         try {
@@ -493,7 +471,6 @@ public class LedgerImpl implements Ledger {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         return new Value(bb, id);
     }
-
 
     @Override
     public Long getOutcome(long decreeNum) {
@@ -516,6 +493,8 @@ public class LedgerImpl implements Ledger {
 
     @Override
     public void setPrevBallot(BallotNum ballot, long dnum, long value) {
+        if (getOutcome(dnum) != null)
+            throw new IllegalArgumentException("Outcome already stored at decree number " + dnum);
         setValue(dnum,new Value(VALUE_IN_BALLOT, ballot, value));
     }
 

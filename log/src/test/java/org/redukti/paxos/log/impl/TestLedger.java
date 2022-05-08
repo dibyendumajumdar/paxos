@@ -26,6 +26,69 @@ public class TestLedger {
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @Test
+    public void testOutOfSequenceOutcomes() throws Exception {
+
+        File file = temporaryFolder.newFolder(BASE_PATH);
+        String basePath = file.getPath();
+        try (Ledger ledger = LedgerImpl.createIfNotExisting(basePath, "l1", ID)) {
+            Assert.assertNotNull(ledger);
+        }
+        checkInvariantsForNewLedger(basePath);
+        Decree d1 = new Decree(0, 101);
+        Decree d2 = new Decree(1, 103);
+        Decree d3 = new Decree(2, 105);
+        Decree d4 = new Decree(3, 107);
+        Decree d5 = new Decree(4, 109);
+
+        try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
+            Assert.assertEquals(-1, ledger.getCommitNum());
+            ledger.setOutcome(d1.decreeNum, d1.value);
+            Assert.assertEquals(d1.value, ledger.getOutcome(d1.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            ledger.setOutcome(d3.decreeNum, d3.value);
+            Assert.assertEquals(d3.value, ledger.getOutcome(d3.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            ledger.setOutcome(d4.decreeNum, d4.value);
+            Assert.assertEquals(d4.value, ledger.getOutcome(d4.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+        }
+
+        try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
+            Assert.assertEquals(d1.value, ledger.getOutcome(d1.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            Assert.assertEquals(d3.value, ledger.getOutcome(d3.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            Assert.assertEquals(d4.value, ledger.getOutcome(d4.decreeNum).longValue());
+            Assert.assertEquals(d1.decreeNum, ledger.getCommitNum());
+            ledger.setOutcome(d2.decreeNum, d2.value);
+            Assert.assertEquals(d2.value, ledger.getOutcome(d2.decreeNum).longValue());
+            Assert.assertEquals(d4.decreeNum, ledger.getCommitNum());
+            ledger.setOutcome(d5.decreeNum, d5.value);
+            Assert.assertEquals(d5.value, ledger.getOutcome(d5.decreeNum).longValue());
+            Assert.assertEquals(d5.decreeNum, ledger.getCommitNum());
+        }
+
+    }
+
+    private void checkInvariantsForNewLedger(String basePath) throws Exception {
+        checkSize(new File(basePath,"l1"), 0);
+        try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
+            Assert.assertEquals(NEG_INF, ledger.getNextBallot());
+            Assert.assertEquals(NEG_INF, ledger.getLastTried());
+            Assert.assertEquals(NEG_INF, ledger.getPrevBallot());
+            Assert.assertEquals(NULL_DECREE, ledger.getPrevDec());
+            Assert.assertEquals(-1, ledger.getCommitNum());
+            Assert.assertEquals(0, ledger.getUndecidedBallots().size());
+        }
+    }
+
+    private void checkSize(File file, int outcomes) throws IOException {
+        long expectedSize = LedgerImpl.Value.size()*outcomes + LedgerImpl.PAGE_SIZE;
+        long actualSize = Files.size(Path.of(file.getPath()));
+        Assert.assertEquals(expectedSize, actualSize);
+    }
+
+    @Test
     public void testCreate() throws Exception {
 
         File file = temporaryFolder.newFolder(BASE_PATH);
@@ -33,13 +96,7 @@ public class TestLedger {
         try (Ledger ledger = LedgerImpl.createIfNotExisting(basePath, "l1", ID)) {
             Assert.assertNotNull(ledger);
         }
-        checkSize(new File(basePath,"l1"), 0);
-        try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assert.assertEquals(NEG_INF, ledger.getNextBallot());
-            Assert.assertEquals(NEG_INF, ledger.getLastTried());
-            Assert.assertEquals(NEG_INF, ledger.getPrevBallot());
-            Assert.assertEquals(NULL_DECREE, ledger.getPrevDec());
-        }
+        checkInvariantsForNewLedger(basePath);
         BallotNum firstBallot = new BallotNum(1, ID);
         Decree firstDecree = new Decree(firstBallot.proposalNumber, 101);
         BallotNum secondBallot = new BallotNum(2, ID);
@@ -74,11 +131,5 @@ public class TestLedger {
             Assert.assertEquals(1, ballotedDecrees.size());
         }
         checkSize(new File(basePath,"l1"), 3);
-    }
-
-    private void checkSize(File file, int outcomes) throws IOException {
-        long expectedSize = LedgerImpl.Value.size()*outcomes + LedgerImpl.PAGE_SIZE;
-        long actualSize = Files.size(Path.of(file.getPath()));
-        Assert.assertEquals(expectedSize, actualSize);
     }
 }
