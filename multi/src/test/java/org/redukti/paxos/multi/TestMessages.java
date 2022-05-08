@@ -7,6 +7,7 @@ import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.net.impl.CorrelationId;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class TestMessages {
 
@@ -14,7 +15,8 @@ public class TestMessages {
     BallotNum b = new BallotNum(39, 3);
     Decree d = new Decree(13, 94);
     Decree d2 = new Decree(14, 76);
-    //Vote v = new Vote(3, b, d);
+    Vote v = new Vote(3, b, d);
+    Vote v2 = new Vote(3, b, d2);
 
     @Test
     public void testClientRequestMessage() {
@@ -44,15 +46,20 @@ public class TestMessages {
         Assert.assertEquals(100, m2.cnum);
     }
 
-//    @Test
-//    public void testLastVoteMessage() {
-//        LastVoteMessage m = new LastVoteMessage(b, v);
-//        ByteBuffer bb = m.serialize();
-//        LastVoteMessage m2 = (LastVoteMessage) PaxosMessages.parseMessage(correlationId, bb);
-//        Assert.assertEquals(m.b, m2.b);
-//        Assert.assertEquals(m.v, m2.v);
-//        Assert.assertEquals(m.v.decree, m2.v.decree);
-//    }
+    @Test
+    public void testLastVoteMessage() {
+
+        LastVoteMessage m = new LastVoteMessage(b, 3, 101, new Vote[] {v, v2});
+        ByteBuffer bb = m.serialize();
+        LastVoteMessage m2 = (LastVoteMessage) PaxosMessages.parseMessage(correlationId, bb);
+        Assert.assertEquals(m.b, m2.b);
+        Assert.assertEquals(3, m.pid);
+        Assert.assertEquals(101, m.cnum);
+        Assert.assertEquals(2, m.votes.length);
+        Assert.assertTrue(Arrays.equals(m.votes, m2.votes));
+        Assert.assertEquals(m.pid, m2.pid);
+        Assert.assertEquals(m.cnum, m2.cnum);
+    }
 //
 //    @Test
 //    public void testBeginBallotMessage() {
