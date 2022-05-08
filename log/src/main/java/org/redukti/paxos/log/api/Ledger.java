@@ -4,6 +4,8 @@
  */
 package org.redukti.paxos.log.api;
 
+import java.util.List;
+
 public interface Ledger extends AutoCloseable {
 
     // decree num is equivalent to the log entry id
@@ -76,4 +78,9 @@ public interface Ledger extends AutoCloseable {
      * The most recent decree number that was committed
      */
     long getCommitNum();
+
+    /**
+     * Get a list of the ballots we know about
+     */
+    List<BallotedDecree> getUndecidedBallots();
 }

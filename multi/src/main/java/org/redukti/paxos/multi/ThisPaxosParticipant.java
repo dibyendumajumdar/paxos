@@ -182,6 +182,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+
+
     void receiveNextBallot(NextBallotMessage pm) {
         log.info("Received " + pm);
         updateNextBallotSender(pm);

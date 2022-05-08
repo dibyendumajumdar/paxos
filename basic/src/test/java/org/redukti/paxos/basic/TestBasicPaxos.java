@@ -3,6 +3,7 @@ package org.redukti.paxos.basic;
 import org.junit.Assert;
 import org.junit.Test;
 import org.redukti.paxos.log.api.BallotNum;
+import org.redukti.paxos.log.api.BallotedDecree;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.RequestResponseSender;
@@ -325,6 +326,14 @@ public class TestBasicPaxos {
         @Override
         public long getCommitNum() {
             return commitNum;
+        }
+
+        @Override
+        public List<BallotedDecree> getUndecidedBallots() {
+            if (outcomes.get(prevDecree.decreeNum) != null && !prevBal.isNull()) {
+                return Arrays.asList(new BallotedDecree(prevBal, prevDecree));
+            }
+            return Collections.emptyList();
         }
     }
 }

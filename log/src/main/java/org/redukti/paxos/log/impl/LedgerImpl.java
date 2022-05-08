@@ -1,9 +1,6 @@
 package org.redukti.paxos.log.impl;
 
-import org.redukti.paxos.log.api.BallotNum;
-import org.redukti.paxos.log.api.Decree;
-import org.redukti.paxos.log.api.Ledger;
-import org.redukti.paxos.log.api.LedgerException;
+import org.redukti.paxos.log.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +12,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class LedgerImpl implements Ledger {
 
@@ -429,8 +428,21 @@ public class LedgerImpl implements Ledger {
     @Override
     public void setOutcome(long decreeNum, long data) {
         setValue(decreeNum, new Value(VALUE_COMMITTED, new BallotNum(-1,id), data));
-        if (header.commitNum < decreeNum) {
+        // This is not efficient as we don't have caching yet
+        // We want to ensure that commitNum tracks the lowest consecutive committed decree
+        // If we see the next decree is committed, we increment it but we need to also see
+        // if we can advance even more
+        if (header.commitNum == decreeNum+1) {
             header.commitNum = decreeNum;
+            for (long i = header.commitNum+1; i <= getLastDnum(); i++) {
+                Value v = getValue(i);
+                if (v.status == VALUE_COMMITTED) {
+                    header.commitNum++;
+                }
+                else {
+                    break;
+                }
+            }
             writeHeader();
         }
     }
@@ -531,5 +543,33 @@ public class LedgerImpl implements Ledger {
     @Override
     public long getCommitNum() {
         return header.commitNum;
+    }
+
+    long getLastDnum() {
+        try {
+            long length = file.length();
+            length -= PAGE_SIZE;
+            if (length <= 0)
+                return 0;
+            return length/Value.size();
+        }
+        catch (IOException e) {
+            throw new LedgerException("Cannot get length of ledger " + name, e);
+        }
+    }
+
+    @Override
+    public List<BallotedDecree> getUndecidedBallots() {
+        List<BallotedDecree> ballots = new ArrayList<>();
+        long cnum = getCommitNum();
+        long dnum = getLastDnum();
+
+        for (long i = cnum+1; i <= dnum; i++) {
+            Value v = getValue(i);
+            if (v != null && v.status == VALUE_IN_BALLOT) {
+                ballots.add(new BallotedDecree(v.maxVBal, new Decree(i,v.value)));
+            }
+        }
+        return ballots;
     }
 }

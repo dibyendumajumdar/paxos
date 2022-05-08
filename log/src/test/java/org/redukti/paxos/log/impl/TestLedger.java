@@ -5,6 +5,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.redukti.paxos.log.api.BallotNum;
+import org.redukti.paxos.log.api.BallotedDecree;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 
@@ -12,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public class TestLedger {
 
@@ -68,6 +70,8 @@ public class TestLedger {
             Assert.assertEquals(secondDecree.value, ledger.getPrevDec().value);
             Assert.assertNull(ledger.getOutcome(0));
             Assert.assertNull(ledger.getOutcome(3));
+            List<BallotedDecree> ballotedDecrees = ledger.getUndecidedBallots();
+            Assert.assertEquals(1, ballotedDecrees.size());
         }
         checkSize(new File(basePath,"l1"), 3);
     }
