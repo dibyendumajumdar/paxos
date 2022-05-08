@@ -31,7 +31,7 @@ import java.util.Arrays;
 /**
  * Also known as message type "1b" or PROMISE message.
  */
-public class LastVoteMessage implements PaxosMessage {
+public class LastVoteMessage implements PaxosMessage, ParticipantInfo {
 
     static final String MESSAGE_TYPE = "PROMISE (1b)";
 
@@ -92,6 +92,16 @@ public class LastVoteMessage implements PaxosMessage {
     @Override
     public int getCode() {
         return PaxosMessages.LAST_VOTE_MESSAGE;
+    }
+
+    @Override
+    public int getPid() {
+        return pid;
+    }
+
+    @Override
+    public long commitNum() {
+        return cnum;
     }
 
     @Override

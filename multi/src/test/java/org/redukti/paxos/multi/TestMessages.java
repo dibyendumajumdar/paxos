@@ -37,12 +37,12 @@ public class TestMessages {
     @Test
     public void testNextBallotMessage() {
         NextBallotMessage m = new NextBallotMessage(b, 1, 100);
-        Assert.assertEquals(1, m.id);
+        Assert.assertEquals(1, m.pid);
         Assert.assertEquals(100, m.cnum);
         ByteBuffer bb = m.serialize();
         NextBallotMessage m2 = (NextBallotMessage) PaxosMessages.parseMessage(correlationId, bb);
         Assert.assertEquals(m.b, m2.b);
-        Assert.assertEquals(1, m2.id);
+        Assert.assertEquals(1, m2.pid);
         Assert.assertEquals(100, m2.cnum);
     }
 

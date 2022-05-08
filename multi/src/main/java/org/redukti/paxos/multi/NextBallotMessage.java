@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
 /**
  * Also known as PREPARE message or message type "1a"
  */
-public class NextBallotMessage implements PaxosMessage {
+public class NextBallotMessage implements PaxosMessage, ParticipantInfo {
 
     static final String MESSAGE_TYPE = "PREPARE (1a)";
 
@@ -48,17 +48,17 @@ public class NextBallotMessage implements PaxosMessage {
     /**
      * Sender id;
      */
-    final int id;
+    final int pid;
 
-    public NextBallotMessage(BallotNum b, int id, long cnum) {
+    public NextBallotMessage(BallotNum b, int pid, long cnum) {
         this.b = b;
-        this.id = id;
+        this.pid = pid;
         this.cnum = cnum;
     }
 
     public NextBallotMessage(ByteBuffer bb) {
         this.b = new BallotNum(bb);
-        this.id = bb.getInt();
+        this.pid = bb.getInt();
         this.cnum = bb.getLong();
     }
 
@@ -67,7 +67,7 @@ public class NextBallotMessage implements PaxosMessage {
         ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + BallotNum.size() + Integer.BYTES + Long.BYTES);
         bb.putShort((short) getCode());
         b.store(bb);
-        bb.putInt(id);
+        bb.putInt(pid);
         bb.putLong(cnum);
         bb.flip();
         return bb;
@@ -79,11 +79,21 @@ public class NextBallotMessage implements PaxosMessage {
     }
 
     @Override
+    public int getPid() {
+        return pid;
+    }
+
+    @Override
+    public long commitNum() {
+        return cnum;
+    }
+
+    @Override
     public String toString() {
         return "NextBallotMessage{" +
                 "type=" + MESSAGE_TYPE +
                 ", b=" + b +
-                ", id=" + id +
+                ", id=" + pid +
                 ", cnum=" + cnum +
                 '}';
     }

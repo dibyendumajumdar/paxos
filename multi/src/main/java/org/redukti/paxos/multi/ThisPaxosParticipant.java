@@ -24,6 +24,7 @@
 package org.redukti.paxos.multi;
 
 import org.redukti.paxos.log.api.BallotNum;
+import org.redukti.paxos.log.api.BallotedDecree;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.Message;
@@ -33,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ThisPaxosParticipant is essentially the implementation of Basic Paxos.
@@ -71,7 +71,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     /**
      * The previous votes sent by participants in LastVoteMessages.
      */
-    //Set<Vote> prevVotes = new LinkedHashSet<>();
+    TreeMap<Long, Set<Vote>> prevVotes = new TreeMap<>();
+    /**
+     * phase 1 responders, and their commitnums
+     */
+    Map<Integer, Long> prevVoters = new LinkedHashMap<>();
+    TreeMap<Long, Long> chosenValues = new TreeMap<>();
     /**
      * All participants including ThisPaxosParticipant.
      */
@@ -146,8 +151,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         assert b.owner() == getId();
         ledger.setLastTried(b);
         status = Status.TRYING;
-        // FIXME
-        //prevVotes.clear();
+        prevVotes.clear();
+        prevVoters.clear();
         nextBallot(b, ledger.getCommitNum());
     }
 
@@ -166,107 +171,113 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * If the next ballot sender has commitnum < ledger.commitnum then
      * send an update
      */
-    void updateNextBallotSender(NextBallotMessage pm) {
-        if (pm.cnum < ledger.getCommitNum()) {
+    void updateParticipant(ParticipantInfo pm) {
+        if (pm.getPid() == getId())
+            return;
+        if (pm.commitNum() < ledger.getCommitNum()) {
             ArrayList<Decree> decrees = new ArrayList<>();
-            for (long cnum = pm.cnum+1; cnum < ledger.getCommitNum(); cnum++) {
+            for (long cnum = pm.commitNum()+1; cnum < ledger.getCommitNum(); cnum++) {
                 Long outcome = ledger.getOutcome(cnum);
                 if (outcome != null) {
                     decrees.add(new Decree(cnum, outcome));
                 }
             }
             if (decrees.size() > 0) {
-                PaxosParticipant p = findParticipant(pm.id);
+                PaxosParticipant p = findParticipant(pm.getPid());
                 p.sendSuccess(decrees.toArray(new Decree[decrees.size()]));
             }
         }
     }
 
-
+    Vote[] getVotes() {
+        List<BallotedDecree> undecidedBallots = ledger.getUndecidedBallots();
+        Vote[] votes = new Vote[undecidedBallots.size()];
+        for (int i = 0; i < undecidedBallots.size(); i++) {
+            votes[i] = new Vote(getId(), undecidedBallots.get(i).b, undecidedBallots.get(i).decree);
+        }
+        return votes;
+    }
 
     void receiveNextBallot(NextBallotMessage pm) {
         log.info("Received " + pm);
-        updateNextBallotSender(pm);
-//        BallotNum b = pm.b;
-//        BallotNum maxBal = ledger.getMaxBal();
-//        if (receiveNextBallotEnabled(b, maxBal)) {
-//            int owner = b.processNum; // process that sent us NextBallotMessage
-//            PaxosParticipant p = findParticipant(owner);
-//            // v is the vote with the largest ballot number
-//            // that we have cast, or its null if we haven't yet
-//            // voted in a ballot.
-//            Vote v = new Vote(myId, ledger.getMaxVBal(), ledger.getMaxVal());
-//            p.sendLastVoteMessage(b, v);
-//        }
+        updateParticipant(pm);
+        BallotNum b = pm.b;
+        BallotNum maxBal = ledger.getMaxBal();
+        if (receiveNextBallotEnabled(b, maxBal)) {
+            int owner = b.processNum; // process that sent us NextBallotMessage
+            PaxosParticipant p = findParticipant(owner);
+            // v is the vote with the largest ballot number
+            // that we have cast, or its null if we haven't yet
+            // voted in a ballot.
+            Vote[] votes = getVotes();
+            p.sendLastVoteMessage(b, getId(), ledger.getCommitNum(), votes);
+        }
     }
 
-//    boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
-//        switch (version) {
-//            case PART_TIME_PARLIAMENT_VERSION ->  {
-//                if (b.compareTo(maxBal) >= 0) {
-//                    ledger.setMaxBal(b);
-//                    maxBal = b;
-//                }
-//                BallotNum maxVBal = ledger.getMaxVBal();
-//                return maxBal.compareTo(maxVBal) > 0;
-//            }
-//            case STPT_2019_TLAPLUS_VERSION -> {
-//                if (b.compareTo(maxBal) > 0) {
-//                    ledger.setMaxBal(b);
-//                    return true;
-//                }
-//                return false;
-//            }
-//            default -> throw new IllegalStateException();
-//        }
-//    }
-//
-//    @Override
-//    public void sendLastVoteMessage(BallotNum b, Vote v) {
-//        receiveLastVote(new LastVoteMessage(b, v));
-//    }
+    boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
+        if (b.compareTo(maxBal) > 0) {
+            ledger.setMaxBal(b);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
+        receiveLastVote(new LastVoteMessage(b, pid, cnum, votes));
+    }
 
     int quorumSize() {
         return (all.size()+1)/2;
     }
 
-//    // Also known as Phase2a(b,v)
-//    // Receive LastVote(b, v) Message
-//    // If b = lastTried [p] and status[p] = trying, then
-//    // – Set prevVotes[p] to the union of its original value and {v}.
-//    void receiveLastVote(LastVoteMessage lv) {
-//        log.info("Received " + lv);
-//        BallotNum b = lv.b;
-//        BallotNum lastTried = ledger.getLastTried();
-//        if (b.equals(lastTried) && status == Status.TRYING) {
-//            prevVotes.add(lv.v);
-//            if (prevVotes.size() >= quorumSize()) {
-//                startPolling();
-//            }
-//        }
-//    }
-//
-//    // Part of Phase2a(b,v)
-//    void startPolling() {
-//        status = Status.POLLING;
-//        quorum = prevVotes.stream().map(v -> findParticipant(v.process)).collect(Collectors.toSet());
-//        voters.clear();
-//        Vote maxVote = prevVotes.stream().max(Comparator.naturalOrder()).get();
-//        Decree maxVoteDecree = maxVote.decree;
-//        if (maxVoteDecree.isNull()) {
-//            // Choose client requested value
-//            ClientRequestMessage crm = currentRequest;
-//            if (crm == null) {
-//                // hmm client timed out?
-//                abort();
-//                return;
-//            }
-//            decree = new Decree(0, crm.requestedValue);
-//        }
-//        else
-//            decree = maxVoteDecree;
-//        beginBallot();
-//    }
+    void receiveLastVote(LastVoteMessage lv) {
+        log.info("Received " + lv);
+        BallotNum b = lv.b;
+        BallotNum lastTried = ledger.getLastTried();
+        if (b.equals(lastTried) && status == Status.TRYING) {
+            for (int i = 0; i < lv.votes.length; i++) {
+                Vote v = lv.votes[i];
+                prevVotes.computeIfAbsent(v.decree.decreeNum, (k) -> new LinkedHashSet<>()).add(v);
+            }
+            prevVoters.put(lv.pid, lv.cnum);
+            updateParticipant(lv);
+            if (prevVoters.size() >= quorumSize()) {
+                startPolling();
+            }
+        }
+    }
+
+    void determineChosenValues() {
+        long newdnum = -1;
+        for (long dnum: prevVotes.keySet()) {
+            Set<Vote> votes = prevVotes.get(dnum);
+            Vote maxVote = votes.stream().max(Comparator.naturalOrder()).get();
+            Long value;
+            if (maxVote == null || maxVote.ballotNum.isNull()) {
+                if (newdnum < 0) {
+                    newdnum = dnum;
+                }
+                value = currentRequest.requestedValue;
+            }
+            else {
+                assert(dnum == maxVote.decree.decreeNum);
+                value = maxVote.decree.value;
+            }
+            chosenValues.put(dnum, value);
+        }
+        if (newdnum < 0) {
+            newdnum = ledger.getCommitNum()+1;
+            chosenValues.put(newdnum, currentRequest.requestedValue);
+        }
+    }
+
+//     Part of Phase2a(b,v)
+    void startPolling() {
+        status = Status.POLLING;
+        determineChosenValues();
+        beginBallot();
+    }
 //
 //    void abort() {
 //        status = Status.IDLE;
@@ -274,25 +285,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 //        voters.clear();
 //    }
 //
-//    /**
-//     * Part of Phase2a(b,v)
-//     */
-//    void beginBallot() {
-//        assert status == Status.POLLING;
-//        BallotNum b = ledger.getLastTried();
-//        for (PaxosParticipant p: acceptors()) {
+    /**
+     * Part of Phase2a(b,v)
+     */
+    void beginBallot() {
+        assert status == Status.POLLING;
+        BallotNum b = ledger.getLastTried();
+        for (PaxosParticipant p: acceptors()) {
 //            p.sendBeginBallot(b, decree);
-//        }
-//    }
-//
-//    Set<PaxosParticipant> acceptors() {
-//        switch (version) {
-//            case PART_TIME_PARLIAMENT_VERSION -> { return quorum; }
-//            case STPT_2019_TLAPLUS_VERSION -> { return all; }
-//            default -> throw new IllegalStateException();
-//        }
-//    }
-//
+        }
+    }
+
+    Set<PaxosParticipant> acceptors() {
+        return all;
+    }
+
 //    @Override
 //    public void sendBeginBallot(BallotNum b, Decree decree) {
 //        receiveBeginBallot(new BeginBallotMessage(b, decree));
@@ -396,9 +403,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (pm instanceof NextBallotMessage) {
             receiveNextBallot((NextBallotMessage) pm);
         }
-//        else if (pm instanceof LastVoteMessage) {
-//            receiveLastVote((LastVoteMessage) pm);
-//        }
+        else if (pm instanceof LastVoteMessage) {
+            receiveLastVote((LastVoteMessage) pm);
+        }
 //        else if (pm instanceof BeginBallotMessage) {
 //            receiveBeginBallot((BeginBallotMessage) pm);
 //        }
