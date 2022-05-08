@@ -60,15 +60,20 @@ public class TestMessages {
         Assert.assertEquals(m.pid, m2.pid);
         Assert.assertEquals(m.cnum, m2.cnum);
     }
-//
-//    @Test
-//    public void testBeginBallotMessage() {
-//        BeginBallotMessage m = new BeginBallotMessage(b, d);
-//        ByteBuffer bb = m.serialize();
-//        BeginBallotMessage m2 = (BeginBallotMessage) PaxosMessages.parseMessage(correlationId, bb);
-//        Assert.assertEquals(m.b, m2.b);
-//        Assert.assertEquals(m.decree, m2.decree);
-//    }
+
+    @Test
+    public void testBeginBallotMessage() {
+        BeginBallotMessage m = new BeginBallotMessage(b, 3, 101, new Decree[]{ d, d2});
+        ByteBuffer bb = m.serialize();
+        BeginBallotMessage m2 = (BeginBallotMessage) PaxosMessages.parseMessage(correlationId, bb);
+        Assert.assertEquals(m.b, m2.b);
+        Assert.assertEquals(3, m.pid);
+        Assert.assertEquals(101, m.cnum);
+        Assert.assertEquals(2, m.decree.length);
+        Assert.assertTrue(Arrays.equals(m.decree, m2.decree));
+        Assert.assertEquals(m.pid, m2.pid);
+        Assert.assertEquals(m.cnum, m2.cnum);
+    }
 //
 //    @Test
 //    public void testVotedMessage() {

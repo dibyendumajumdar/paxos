@@ -45,9 +45,9 @@ public class PaxosMessages {
             case LAST_VOTE_MESSAGE: {
                 return new LastVoteMessage(bb);
             }
-//            case BEGIN_BALLOT_MESSAGE: {
-//                return new BeginBallotMessage(bb);
-//            }
+            case BEGIN_BALLOT_MESSAGE: {
+                return new BeginBallotMessage(bb);
+            }
 //            case VOTED_MESSAGE: {
 //                return new VotedMessage(bb);
 //            }
