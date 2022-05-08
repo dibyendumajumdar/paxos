@@ -39,13 +39,19 @@ public class BeginBallotMessage implements PaxosMessage {
     final BallotNum b;
     final int pid;
     final long cnum;
-    final Decree[] decree;
+    final Decree[] chosenDecrees;
+    final Decree[] committedDecrees; // optional
 
-    public BeginBallotMessage(BallotNum b, int pid, long cnum, Decree[] decree) {
+    public BeginBallotMessage(BallotNum b, int pid, long cnum, Decree[] chosenDecrees) {
+        this(b, pid, cnum, chosenDecrees, new Decree[0]);
+    }
+
+    public BeginBallotMessage(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
         this.b = b;
         this.pid = pid;
         this.cnum = cnum;
-        this.decree = decree;
+        this.chosenDecrees = chosenDecrees;
+        this.committedDecrees = new Decree[0];
     }
 
     public BeginBallotMessage(ByteBuffer bb) {
@@ -53,24 +59,34 @@ public class BeginBallotMessage implements PaxosMessage {
         pid = bb.getInt();
         cnum = bb.getLong();
         int n = bb.getInt();
-        decree = new Decree[n];
+        chosenDecrees = new Decree[n];
         for (int i = 0; i < n; i++) {
-            decree[i] = new Decree(bb);
+            chosenDecrees[i] = new Decree(bb);
+        }
+        n = bb.getInt();
+        committedDecrees = new Decree[n];
+        for (int i = 0; i < n; i++) {
+            committedDecrees[i] = new Decree(bb);
         }
     }
 
     @Override
     public ByteBuffer serialize() {
         ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+BallotNum.size()+
-                2*Integer.BYTES+Long.BYTES+
-                decree.length*Decree.size());
+                3*Integer.BYTES+Long.BYTES+
+                chosenDecrees.length*Decree.size()+
+                committedDecrees.length*Decree.size());
         bb.putShort((short)getCode());
         b.store(bb);
         bb.putInt(pid);
         bb.putLong(cnum);
-        bb.putInt(decree.length);
-        for (int i = 0; i < decree.length; i++) {
-            decree[i].store(bb);
+        bb.putInt(chosenDecrees.length);
+        for (int i = 0; i < chosenDecrees.length; i++) {
+            chosenDecrees[i].store(bb);
+        }
+        bb.putInt(committedDecrees.length);
+        for (int i = 0; i < committedDecrees.length; i++) {
+            committedDecrees[i].store(bb);
         }
         bb.flip();
         return bb;
@@ -88,7 +104,8 @@ public class BeginBallotMessage implements PaxosMessage {
                 ", b=" + b +
                 ", pid=" + pid +
                 ", cnum=" + cnum +
-                ", decree[]=" + Arrays.asList(decree) +
+                ", chosen[]=" + Arrays.asList(chosenDecrees) +
+                ", committed[]=" + Arrays.asList(committedDecrees) +
                 '}';
     }
 }

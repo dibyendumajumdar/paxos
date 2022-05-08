@@ -135,8 +135,8 @@ public class TestLedger {
 
             ledger.setOutcome(d1.decreeNum, d1.value);
             Assert.assertEquals(1, ledger.getUndecidedBallots().size());
-            Assert.assertEquals(d2, ledger.getUndecidedBallots().get(1).decree);
-            Assert.assertEquals(b2, ledger.getUndecidedBallots().get(1).b);
+            Assert.assertEquals(d2, ledger.getUndecidedBallots().get(0).decree);
+            Assert.assertEquals(b2, ledger.getUndecidedBallots().get(0).b);
             Assert.assertEquals(0, ledger.getCommitNum());
         }
         checkSize(new File(basePath,"l1"), 2);

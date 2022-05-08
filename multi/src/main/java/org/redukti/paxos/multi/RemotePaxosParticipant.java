@@ -64,15 +64,20 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
         remote.connection.submit(logit(new LastVoteMessage(b, pid, cnum, votes)).serialize(), this, Duration.ofSeconds(5));
     }
 
-//    @Override
-//    public void sendBeginBallot(BallotNum b, Decree decree) {
-//        remote.connection.submit(logit(new BeginBallotMessage(b, decree)).serialize(), this, Duration.ofSeconds(5));
-//    }
-//
-//    @Override
-//    public void sendVoted(BallotNum prevBal, int id) {
-//        remote.connection.submit(logit(new VotedMessage(prevBal, id)).serialize(), this, Duration.ofSeconds(5));
-//    }
+    @Override
+    public void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
+        remote.connection.submit(logit(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees)).serialize(), this, Duration.ofSeconds(5));
+    }
+
+    @Override
+    public void sendPendingVote(BallotNum b, int pid, long cnum) {
+        remote.connection.submit(logit(new PendingVoteMessage(b, pid, cnum)).serialize(), this, Duration.ofSeconds(5));
+    }
+
+    @Override
+    public void sendVoted(BallotNum prevBal, int id) {
+        remote.connection.submit(logit(new VotedMessage(prevBal, id)).serialize(), this, Duration.ofSeconds(5));
+    }
 
     @Override
     public void sendSuccess(Decree[] decrees) {

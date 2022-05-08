@@ -69,8 +69,8 @@ public class TestMessages {
         Assert.assertEquals(m.b, m2.b);
         Assert.assertEquals(3, m.pid);
         Assert.assertEquals(101, m.cnum);
-        Assert.assertEquals(2, m.decree.length);
-        Assert.assertTrue(Arrays.equals(m.decree, m2.decree));
+        Assert.assertEquals(2, m.chosenDecrees.length);
+        Assert.assertTrue(Arrays.equals(m.chosenDecrees, m2.chosenDecrees));
         Assert.assertEquals(m.pid, m2.pid);
         Assert.assertEquals(m.cnum, m2.cnum);
     }

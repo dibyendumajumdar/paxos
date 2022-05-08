@@ -24,44 +24,50 @@
 package org.redukti.paxos.multi;
 
 import org.redukti.paxos.log.api.BallotNum;
-import org.redukti.paxos.log.api.Decree;
 
-import java.util.Objects;
+import java.nio.ByteBuffer;
 
-public abstract class PaxosParticipant {
+/**
+ * Also known as Phase 2b - ACCEPTED message
+ */
+public class VotedMessage implements PaxosMessage {
 
-    /**
-     * Each PaxosParticipant has an id that marks its position in the
-     * process array
-     */
-    public abstract int getId();
+    static final String MESSAGE_TYPE = "ACCEPTED (2b)";
 
-    // equivalent to phase 1 (a) prepare request
-    public abstract void sendNextBallot(BallotNum b, long cnum);
+    final BallotNum b;
+    final int pid;
 
-    // equivalent to phase 1 (b) promise message
-    public abstract void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes);
+    public VotedMessage(ByteBuffer bb) {
+        this.b = new BallotNum(bb);
+        this.pid = bb.get();
+    }
 
-    // equivalent to phase 2 (a) accept request
-    public abstract void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees);
-
-    public abstract void sendPendingVote(BallotNum b, int pid, long cnum);
-
-    // equivalent to phase 2 (b) accepted message
-    public abstract void sendVoted(BallotNum prevBal, int id);
-
-    public abstract void sendSuccess(Decree[] decrees);
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId());
+    public VotedMessage(BallotNum b, int id) {
+        this.b = b;
+        this.pid = id;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PaxosParticipant p = (PaxosParticipant) o;
-        return getId() == p.getId();
+    public ByteBuffer serialize() {
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+BallotNum.size()+Byte.BYTES);
+        bb.putShort((short)getCode());
+        b.store(bb);
+        bb.put((byte) pid);
+        bb.flip();
+        return bb;
+    }
+
+    @Override
+    public int getCode() {
+        return PaxosMessages.VOTED_MESSAGE;
+    }
+
+    @Override
+    public String toString() {
+        return "VotedMessage{" +
+                "type=" + MESSAGE_TYPE +
+                ", b=" + b +
+                ", owner=" + pid +
+                '}';
     }
 }

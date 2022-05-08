@@ -65,24 +65,22 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      */
     Set<PaxosParticipant> voters = new LinkedHashSet<>();
     /**
-     * Quorum is roughly speaking the majority set that voted in the ballot.
-     */
-    Set<PaxosParticipant> quorum = new LinkedHashSet<>();
-    /**
-     * The previous votes sent by participants in LastVoteMessages.
+     * The previous votes sent by participants in LastVoteMessages,
+     * by decree number.
      */
     TreeMap<Long, Set<Vote>> prevVotes = new TreeMap<>();
     /**
-     * phase 1 responders, and their commitnums
+     * phase 1 responders, and their commit nums
      */
     Map<Integer, Long> prevVoters = new LinkedHashMap<>();
+    /**
+     * Chosen values for all decrees in ballot, decree number to value mapping
+     */
     TreeMap<Long, Long> chosenValues = new TreeMap<>();
     /**
      * All participants including ThisPaxosParticipant.
      */
     Set<PaxosParticipant> all = new LinkedHashSet<>();
-
-    Decree decree = null;
 
     volatile ClientRequestMessage currentRequest;
     volatile RequestResponseSender currentResponseSender;
@@ -161,6 +159,22 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receiveNextBallot(new NextBallotMessage(b,myId,cnum));
     }
 
+    Decree[] getCommittedDecrees(ParticipantInfo pi) {
+        if (pi.commitNum() < ledger.getCommitNum()) {
+            ArrayList<Decree> decrees = new ArrayList<>();
+            for (long cnum = pi.commitNum()+1; cnum < ledger.getCommitNum(); cnum++) {
+                Long outcome = ledger.getOutcome(cnum);
+                if (outcome != null) {
+                    decrees.add(new Decree(cnum, outcome));
+                }
+            }
+            if (decrees.size() > 0) {
+                return decrees.toArray(new Decree[decrees.size()]);
+            }
+        }
+        return new Decree[0];
+    }
+
     /**
      * If the next ballot sender has commitnum < ledger.commitnum then
      * send an update
@@ -168,18 +182,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     void updateParticipant(ParticipantInfo pm) {
         if (pm.getPid() == getId())
             return;
-        if (pm.commitNum() < ledger.getCommitNum()) {
-            ArrayList<Decree> decrees = new ArrayList<>();
-            for (long cnum = pm.commitNum()+1; cnum < ledger.getCommitNum(); cnum++) {
-                Long outcome = ledger.getOutcome(cnum);
-                if (outcome != null) {
-                    decrees.add(new Decree(cnum, outcome));
-                }
-            }
-            if (decrees.size() > 0) {
-                PaxosParticipant p = findParticipant(pm.getPid());
-                p.sendSuccess(decrees.toArray(new Decree[decrees.size()]));
-            }
+        Decree[] committedDecrees = getCommittedDecrees(pm);
+        if (committedDecrees.length > 0) {
+            PaxosParticipant p = findParticipant(pm.getPid());
+            p.sendSuccess(committedDecrees);
         }
     }
 
@@ -286,85 +292,101 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         assert status == Status.POLLING;
         BallotNum b = ledger.getLastTried();
         for (PaxosParticipant p: acceptors()) {
-//            p.sendBeginBallot(b, decree);
+            p.sendBeginBallot(b, getId(), ledger.getCommitNum(), getChosenDecrees(), new Decree[0]);
         }
+    }
+
+    Decree[] getChosenDecrees() {
+        Decree[] decrees = new Decree[chosenValues.size()];
+        int i = 0;
+        for (Map.Entry<Long,Long> e: chosenValues.entrySet()) {
+            decrees[i++] = new Decree(e.getKey(), e.getValue());
+        }
+        return decrees;
     }
 
     Set<PaxosParticipant> acceptors() {
         return all;
     }
 
-//    @Override
-//    public void sendBeginBallot(BallotNum b, Decree decree) {
-//        receiveBeginBallot(new BeginBallotMessage(b, decree));
-//    }
-//
-//    /**
-//     * Also known as Phase2b(a)
-//     */
-//    void receiveBeginBallot(BeginBallotMessage pm) {
-//        log.info("Received " + pm);
-//        BallotNum b = pm.b;
-//        BallotNum maxBal = ledger.getMaxBal();
-//        if (receiveBeginBallotEnabled(b, maxBal)) {
-//            ledger.setMaxVBal(b, pm.decree.value);
-//            PaxosParticipant p = findParticipant(b.processNum);
-//            p.sendVoted(b, myId);
-//        }
-//    }
-//
-//    boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
-//        switch (version) {
-//            case PART_TIME_PARLIAMENT_VERSION -> {
-//                if (b.equals(maxBal)) {
-//                    BallotNum maxVBal = ledger.getMaxVBal();
-//                    return b.compareTo(maxVBal) > 0;
-//                }
-//                break;
-//            }
-//            case STPT_2019_TLAPLUS_VERSION -> {
-//                if (b.compareTo(maxBal) >= 0) {
-//                    ledger.setMaxBal(b);
-//                    return true;
-//                }
-//                break;
-//            }
-//        }
-//        return false;
-//    }
-//
-//    @Override
-//    public void sendVoted(BallotNum prevBal, int id) {
-//        receiveVoted(new VotedMessage(prevBal, id));
-//    }
-//
-//    void receiveVoted(VotedMessage vm) {
-//        log.info("Received " + vm);
-//        BallotNum lastTried = ledger.getLastTried();
-//        BallotNum b = vm.b;
-//        if (b.equals(lastTried) && status == Status.POLLING) {
-//            PaxosParticipant q = findParticipant(vm.owner);
-//            voters.add(q);
-//            if (haveQuorumOfVoters()) {
-//                Long v = ledger.getOutcome(decree.decreeNum);
-//                if (v == null) {
-//                    ledger.setOutcome(decree.decreeNum, decree.value);
-//                }
-//                for (PaxosParticipant p: all) {
-//                    p.sendSuccess(new Decree(decree.decreeNum, decree.value));
-//                }
-//            }
-//        }
-//    }
-//
-//    boolean haveQuorumOfVoters() {
-//        switch (version) {
-//            case PART_TIME_PARLIAMENT_VERSION -> { return voters.containsAll(quorum); }
-//            case STPT_2019_TLAPLUS_VERSION -> { return voters.size() == quorumSize(); }
-//        }
-//        return false;
-//    }
-//
+    @Override
+    public void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
+        receiveBeginBallot(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees));
+    }
+
+    /**
+     * Also known as Phase2b(a)
+     */
+    void receiveBeginBallot(BeginBallotMessage pm) {
+        log.info("Received " + pm);
+        BallotNum b = pm.b;
+        BallotNum maxBal = ledger.getMaxBal();
+        if (receiveBeginBallotEnabled(b, maxBal)) {
+            for (int i = 0; i < pm.committedDecrees.length; i++) {
+                ledger.setOutcome(pm.committedDecrees[i].decreeNum, pm.committedDecrees[i].value);
+            }
+            for (int i = 0; i < pm.chosenDecrees.length; i++) {
+                ledger.setMaxVBal(b, pm.chosenDecrees[i].decreeNum, pm.chosenDecrees[i].value);
+            }
+            PaxosParticipant p = findParticipant(b.processNum);
+            if (ledger.getCommitNum() < pm.cnum) {
+                p.sendPendingVote(b, getId(), ledger.getCommitNum());
+            }
+            else {
+                p.sendVoted(b, myId);
+            }
+        }
+    }
+
+    boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
+        if (b.compareTo(maxBal) >= 0) {
+            ledger.setMaxBal(b);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void sendPendingVote(BallotNum b, int pid, long cnum) {
+        receivePendingVote(new PendingVoteMessage(b, pid, cnum));
+    }
+
+    void receivePendingVote(PendingVoteMessage m) {
+        log.info("Received " + m);
+        PaxosParticipant p = findParticipant(m.pid);
+        p.sendBeginBallot(m.b, getId(), ledger.getCommitNum(), getChosenDecrees(), getCommittedDecrees(m));
+    }
+
+    @Override
+    public void sendVoted(BallotNum prevBal, int id) {
+        receiveVoted(new VotedMessage(prevBal, id));
+    }
+
+    void receiveVoted(VotedMessage vm) {
+        log.info("Received " + vm);
+        BallotNum lastTried = ledger.getLastTried();
+        BallotNum b = vm.b;
+        if (b.equals(lastTried) && status == Status.POLLING) {
+            PaxosParticipant q = findParticipant(vm.pid);
+            voters.add(q);
+            if (haveQuorumOfVoters()) {
+                for (Map.Entry<Long,Long> e: chosenValues.entrySet()) {
+                    Long v = ledger.getOutcome(e.getKey());
+                    if (v == null) {
+                        ledger.setOutcome(e.getKey(), e.getValue());
+                    }
+                }
+                for (PaxosParticipant p: all) {
+                    p.sendSuccess(getChosenDecrees());
+                }
+            }
+        }
+    }
+
+    boolean haveQuorumOfVoters() {
+        return voters.size() == quorumSize();
+    }
+
     @Override
     public void sendSuccess(Decree[] decrees) {
         receiveSuccess(new SuccessMessage(decrees));
@@ -400,12 +422,15 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         else if (pm instanceof LastVoteMessage) {
             receiveLastVote((LastVoteMessage) pm);
         }
-//        else if (pm instanceof BeginBallotMessage) {
-//            receiveBeginBallot((BeginBallotMessage) pm);
-//        }
-//        else if (pm instanceof VotedMessage) {
-//            receiveVoted((VotedMessage) pm);
-//        }
+        else if (pm instanceof BeginBallotMessage) {
+            receiveBeginBallot((BeginBallotMessage) pm);
+        }
+        else if (pm instanceof PendingVoteMessage) {
+            receivePendingVote((PendingVoteMessage) pm);
+        }
+        else if (pm instanceof VotedMessage) {
+            receiveVoted((VotedMessage) pm);
+        }
         else if (pm instanceof SuccessMessage) {
             receiveSuccess((SuccessMessage) pm);
         }
