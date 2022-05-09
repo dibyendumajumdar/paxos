@@ -150,6 +150,16 @@ public class TestMultiPaxos {
         Assert.assertEquals(42, cra.agreedValue);
         Assert.assertEquals(4, cra.dnum);
         Assert.assertEquals(0, me.prevVotes.size());
+
+        ClientRequestMessage crm2 = new ClientRequestMessage(new CorrelationId(3,2), 142);
+        me.receiveClientRequest(responseSender, crm2);
+        remote1.receiveBeginBallot(remote1.beginBallotMessages.get(1));
+        remote1.receiveSuccess(remote1.successMessages.get(1));
+        remote2.receiveSuccess(remote2.successMessages.get(1));
+        ClientResponseMessage cra2 = (ClientResponseMessage) PaxosMessages.parseMessage(crm.correlationId, responseSender.responses.get(1));
+        Assert.assertEquals(142, cra2.agreedValue);
+        Assert.assertEquals(5, cra2.dnum);
+        Assert.assertEquals(0, me.prevVotes.size());
     }
 
 

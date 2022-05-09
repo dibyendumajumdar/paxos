@@ -121,9 +121,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (currentRequest == null) {
             this.currentRequest = pm;
             this.currentResponseSender = responseSender;
+            chosenDNum = -1;
+            chosenValues.clear();
+            voters.clear();
             if (status == Status.IDLE)
                 tryNewBallot();
-            else if (status == Status.POLLING) {
+            else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
                 startPolling();
             }
         }
@@ -385,9 +388,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                         ledger.setOutcome(e.getKey(), e.getValue());
                     }
                 }
+                Decree[] chosenDecrees = getChosenDecrees();
                 for (PaxosParticipant p: all) {
-                    p.sendSuccess(getChosenDecrees());
+                    p.sendSuccess(chosenDecrees);
                 }
+                sendClientResponse(chosenDecrees);
             }
         }
     }
@@ -403,29 +408,32 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void receiveSuccess(SuccessMessage sm) {
         log.info("Received " + sm);
-        Long chosenValue = null;
         for (int i = 0; i < sm.decree.length; i++) {
             Decree d = sm.decree[i];
             Long v = ledger.getOutcome(d.decreeNum);
             if (v == null) {
                 ledger.setOutcome(d.decreeNum, d.value);
             }
+        }
+    }
+
+    void sendClientResponse(Decree[] chosenDecrees) {
+        Long chosenValue = null;
+        for (int i = 0; i < chosenDecrees.length; i++) {
+            Decree d = chosenDecrees[i];
             if (chosenDNum >= 0 && d.decreeNum == chosenDNum)
                 chosenValue = d.value;
         }
         ClientRequestMessage crm = currentRequest;
-        if (crm != null && chosenValue != null && status == Status.POLLING) {
+        if (crm != null && chosenValue != null) {
             ClientResponseMessage rm = new ClientResponseMessage(chosenDNum, chosenValue);
             currentResponseSender.setData(rm.serialize());
             currentResponseSender.submit();
-            currentResponseSender = null;
-            currentRequest = null;
-            chosenDNum = -1;
         }
-        for (int i = 0; i < sm.decree.length; i++) {
-            Decree d = sm.decree[i];
-            prevVotes.remove(d.decreeNum);
-        }
+        currentResponseSender = null;
+        currentRequest = null;
+        prevVotes.clear();
+        voters.clear();
     }
 
     @Override
