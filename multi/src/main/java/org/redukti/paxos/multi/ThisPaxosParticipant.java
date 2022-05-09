@@ -150,19 +150,19 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void nextBallot(BallotNum b, long cnum) {
         for (PaxosParticipant p: all) {
-            p.sendNextBallot(b, cnum);
+            p.sendNextBallot(b, myId, cnum);
         }
     }
 
     @Override
-    public void sendNextBallot(BallotNum b, long cnum) {
-        receiveNextBallot(new NextBallotMessage(b,myId,cnum));
+    public void sendNextBallot(BallotNum b, int pid, long cnum) {
+        receiveNextBallot(new NextBallotMessage(b,pid,cnum));
     }
 
     Decree[] getCommittedDecrees(ParticipantInfo pi) {
         if (pi.commitNum() < ledger.getCommitNum()) {
             ArrayList<Decree> decrees = new ArrayList<>();
-            for (long cnum = pi.commitNum()+1; cnum < ledger.getCommitNum(); cnum++) {
+            for (long cnum = pi.commitNum()+1; cnum <= ledger.getCommitNum(); cnum++) {
                 Long outcome = ledger.getOutcome(cnum);
                 if (outcome != null) {
                     decrees.add(new Decree(cnum, outcome));
@@ -414,7 +414,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 //            currentResponseSender = null;
 //            currentRequest = null;
 //        }
-        status = Status.IDLE;
+        //status = Status.IDLE;
     }
 
     @Override

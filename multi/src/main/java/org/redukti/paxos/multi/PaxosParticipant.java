@@ -37,7 +37,7 @@ public abstract class PaxosParticipant {
     public abstract int getId();
 
     // equivalent to phase 1 (a) prepare request
-    public abstract void sendNextBallot(BallotNum b, long cnum);
+    public abstract void sendNextBallot(BallotNum b, int pid, long cnum);
 
     // equivalent to phase 1 (b) promise message
     public abstract void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes);

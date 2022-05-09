@@ -55,8 +55,8 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
-    public void sendNextBallot(BallotNum b, long cnum) {
-        remote.connection.submit(logit(new NextBallotMessage(b, id, cnum)).serialize(), this, Duration.ofSeconds(5));
+    public void sendNextBallot(BallotNum b, int pid, long cnum) {
+        remote.connection.submit(logit(new NextBallotMessage(b, pid, cnum)).serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
