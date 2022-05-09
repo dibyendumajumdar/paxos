@@ -36,8 +36,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * ThisPaxosParticipant is essentially the implementation of Basic Paxos.
- * This is where the paxos algorithm is implemented.
+ * ThisPaxosParticipant implements Multi Paxos.
  * ThisPaxosParticipant performs all the various roles, proposer, acceptor, learner.
  * The implementation was started following closely the description of the algorithm in
  * Leslie Lamport's Part Time Parliament paper, p12, p25-27.
@@ -85,6 +84,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     volatile ClientRequestMessage currentRequest;
     volatile RequestResponseSender currentResponseSender;
 
+    volatile long chosenDNum = -1; // meaningful only if there is a client request
+
     public ThisPaxosParticipant(int id, Ledger ledger) {
         this.ledger = ledger;
         this.myId = id;
@@ -103,7 +104,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             if (p.getId() == owner)
                 return p;
         }
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException("Participant " + owner + " is not known");
     }
 
     @Override
@@ -120,7 +121,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (currentRequest == null) {
             this.currentRequest = pm;
             this.currentResponseSender = responseSender;
-            tryNewBallot();
+            if (status == Status.IDLE)
+                tryNewBallot();
+            else if (status == Status.POLLING) {
+                startPolling();
+            }
         }
         else {
             // queue it
@@ -199,7 +204,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveNextBallot(NextBallotMessage pm) {
-        log.info("Received " + pm);
+        log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         updateParticipant(pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
@@ -232,7 +237,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveLastVote(LastVoteMessage lv) {
-        log.info("Received " + lv);
+        log.info("Received by " + getId() + " from " + lv.pid + " " + lv);
         updateParticipant(lv);
         BallotNum b = lv.b;
         BallotNum lastTried = ledger.getLastTried();
@@ -249,14 +254,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void determineChosenValues() {
-        long newdnum = -1;
+        chosenDNum = -1;
         for (long dnum: prevVotes.keySet()) {
             Set<Vote> votes = prevVotes.get(dnum);
             Vote maxVote = votes.stream().max(Comparator.naturalOrder()).get();
             Long value;
             if (maxVote == null || maxVote.ballotNum.isNull()) {
-                if (newdnum < 0) {
-                    newdnum = dnum;
+                if (chosenDNum < 0) {
+                    chosenDNum = dnum;
                 }
                 value = currentRequest.requestedValue;
             }
@@ -266,9 +271,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             }
             chosenValues.put(dnum, value);
         }
-        if (newdnum < 0) {
-            newdnum = ledger.getCommitNum()+1;
-            chosenValues.put(newdnum, currentRequest.requestedValue);
+        if (chosenDNum < 0) {
+            chosenDNum = ledger.getCommitNum()+1;
+            chosenValues.put(chosenDNum, currentRequest.requestedValue);
         }
     }
 
@@ -318,7 +323,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * Also known as Phase2b(a)
      */
     void receiveBeginBallot(BeginBallotMessage pm) {
-        log.info("Received " + pm);
+        log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveBeginBallotEnabled(b, maxBal)) {
@@ -352,7 +357,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receivePendingVote(PendingVoteMessage m) {
-        log.info("Received " + m);
+        log.info("Received by " + getId() + " from " + m.pid + " " + m);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = m.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
@@ -367,7 +372,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveVoted(VotedMessage vm) {
-        log.info("Received " + vm);
+        log.info("Received by " + getId() + " from " + vm.pid + " " + vm);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = vm.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
@@ -398,23 +403,29 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void receiveSuccess(SuccessMessage sm) {
         log.info("Received " + sm);
+        Long chosenValue = null;
         for (int i = 0; i < sm.decree.length; i++) {
             Decree d = sm.decree[i];
             Long v = ledger.getOutcome(d.decreeNum);
             if (v == null) {
                 ledger.setOutcome(d.decreeNum, d.value);
             }
+            if (chosenDNum >= 0 && d.decreeNum == chosenDNum)
+                chosenValue = d.value;
         }
-        // FIXME - outcome need to be matched to the assigned dnum
-//        ClientRequestMessage crm = currentRequest;
-//        if (crm != null) {
-//            ClientResponseMessage rm = new ClientResponseMessage(v);
-//            currentResponseSender.setData(rm.serialize());
-//            currentResponseSender.submit();
-//            currentResponseSender = null;
-//            currentRequest = null;
-//        }
-        //status = Status.IDLE;
+        ClientRequestMessage crm = currentRequest;
+        if (crm != null && chosenValue != null && status == Status.POLLING) {
+            ClientResponseMessage rm = new ClientResponseMessage(chosenDNum, chosenValue);
+            currentResponseSender.setData(rm.serialize());
+            currentResponseSender.submit();
+            currentResponseSender = null;
+            currentRequest = null;
+            chosenDNum = -1;
+        }
+        for (int i = 0; i < sm.decree.length; i++) {
+            Decree d = sm.decree[i];
+            prevVotes.remove(d.decreeNum);
+        }
     }
 
     @Override

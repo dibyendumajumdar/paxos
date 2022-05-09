@@ -26,54 +26,55 @@ public class TestMultiPaxos {
     Ledger r2ledger = new MockLedger(2);
     MockRemoteParticipant remote2 = new MockRemoteParticipant(2, r2ledger);
 
-//    @Test
-//    public void testCreate() {
-//        Assert.assertEquals(myId, me.getId());
-//        Assert.assertEquals(1, me.all.size());
-//        Assert.assertNotNull(me.findParticipant(myId));
-//        Assert.assertEquals(me, me.findParticipant(myId));
-//        Assert.assertEquals(me, me);
-//        List<PaxosParticipant> remotes = List.of(remote1, remote2);
-//        me.addRemotes(remotes);
-//        Assert.assertEquals(3, me.all.size());
-//        Assert.assertEquals(me, me.findParticipant(myId));
-//        Assert.assertEquals(remote1, me.findParticipant(1));
-//        Assert.assertEquals(remote2, me.findParticipant(2));
-//        Assert.assertNotEquals(me, remote1);
-//        Assert.assertNotEquals(me, remote2);
-//        Assert.assertEquals(remote1, new MockRemoteParticipant(remote1.getId()));
-//        Assert.assertEquals(2, me.quorumSize());
-//        Assert.assertEquals(Status.IDLE, me.status);
-//    }
-//
-//    @Test
-//    public void testCreateEvenParticipants() {
-//        List<PaxosParticipant> remotes = List.of(remote1, remote2, new MockRemoteParticipant(3));
-//        try {
-//            me.addRemotes(remotes);
-//            fail();
-//        }
-//        catch (IllegalArgumentException e) {
-//        }
-//    }
-//
-//    @Test
-//    public void testCreateTooFewParticipants() {
-//        List<PaxosParticipant> remotes = List.of(remote1);
-//        try {
-//            me.addRemotes(remotes);
-//            fail();
-//        }
-//        catch (IllegalArgumentException e) {
-//        }
-//    }
-//
+    @Test
+    public void testCreate() {
+        Assert.assertEquals(myId, me.getId());
+        Assert.assertEquals(1, me.all.size());
+        Assert.assertNotNull(me.findParticipant(myId));
+        Assert.assertEquals(me, me.findParticipant(myId));
+        Assert.assertEquals(me, me);
+        List<PaxosParticipant> remotes = List.of(remote1, remote2);
+        me.addRemotes(remotes);
+        Assert.assertEquals(3, me.all.size());
+        Assert.assertEquals(me, me.findParticipant(myId));
+        Assert.assertEquals(remote1, me.findParticipant(1));
+        Assert.assertEquals(remote2, me.findParticipant(2));
+        Assert.assertNotEquals(me, remote1);
+        Assert.assertNotEquals(me, remote2);
+        Assert.assertEquals(remote1, new MockRemoteParticipant(remote1.getId(), r1ledger));
+        Assert.assertEquals(2, me.quorumSize());
+        Assert.assertEquals(Status.IDLE, me.status);
+    }
+
+    @Test
+    public void testCreateEvenParticipants() {
+        List<PaxosParticipant> remotes = List.of(remote1, remote2, new MockRemoteParticipant(3, null));
+        try {
+            me.addRemotes(remotes);
+            fail();
+        }
+        catch (IllegalArgumentException e) {
+        }
+    }
+
+    @Test
+    public void testCreateTooFewParticipants() {
+        List<PaxosParticipant> remotes = List.of(remote1);
+        try {
+            me.addRemotes(remotes);
+            fail();
+        }
+        catch (IllegalArgumentException e) {
+        }
+    }
+
 
     // Scenario
     // we have 2 committed outcomes.
     // remote 1 has higher cnum, responds to prepare (we expect updates from remote 1)
     // remote 2 has lower cnum, responds to accept (we expect pending vote)
-
+    // select a new value - going through phase 1
+    // select another value - skipping phase 1
     @Test
     public void testWithNoPriorBallot() {
         List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
@@ -141,75 +142,15 @@ public class TestMultiPaxos {
         remote2.receiveSuccess(remote2.successMessages.get(0));
         Assert.assertEquals(4, r1ledger.getCommitNum());
         Assert.assertEquals(4, r2ledger.getCommitNum());
-
-//        BallotNum currentballot = ledger.getLastTried();
-//        Assert.assertNull(ledger.getOutcome(0));
-//        Vote remote1Vote = new Vote(remote1.getId(), new BallotNum(-1,remote1.getId()), new Decree(-1,0));
-//        me.receiveLastVote(new LastVoteMessage(currentballot, remote1Vote));
-//        Assert.assertEquals(2, me.prevVotes.size());
-//        Assert.assertTrue(containsVote(me.prevVotes, remote1Vote.process, remote1Vote.ballotNum, remote1Vote.decree));
-//        Assert.assertEquals(1, remote1.ballotsStarted.size());
-//        Assert.assertEquals(Status.POLLING, me.status); // still waiting for VotedMessage
-//        // now let remote2 return Voted message
-//        me.receiveVoted(new VotedMessage(currentballot, remote2.getId()));
-//        Assert.assertEquals(2, me.voters.size());
-//        Assert.assertTrue(me.quorum.contains(me));
-//        Assert.assertTrue(me.quorum.contains(remote1));
-//        Assert.assertEquals(2, me.quorum.size());
-//        Assert.assertTrue(me.voters.contains(me));
-//        Assert.assertTrue(me.voters.contains(remote2));
-//        if (me.version == ThisPaxosParticipant.PART_TIME_PARLIAMENT_VERSION) {
-//            // not quorum yet as acceptors set not same as those who promised
-//            Assert.assertEquals(Status.POLLING, me.status);
-//            Assert.assertNull(ledger.getOutcome(0));
-//        }
-//        else {
-//            Assert.assertEquals(Status.IDLE, me.status);
-//            Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
-//            Assert.assertEquals(1, responseSender.responses.size());
-//        }
+        Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(4));
+        Assert.assertEquals(Long.valueOf(42), r1ledger.getOutcome(4));
+        Assert.assertEquals(Long.valueOf(42), r2ledger.getOutcome(4));
+        Assert.assertEquals(1, responseSender.responses.size());
+        ClientResponseMessage cra = (ClientResponseMessage) PaxosMessages.parseMessage(crm.correlationId, responseSender.responses.get(0));
+        Assert.assertEquals(42, cra.agreedValue);
+        Assert.assertEquals(4, cra.dnum);
+        Assert.assertEquals(0, me.prevVotes.size());
     }
-//
-//    @Test
-//    public void testSingleParticipantQuorum() {
-//        Assert.assertEquals(1, me.quorumSize());
-//
-//        CorrelationId correlationId = new CorrelationId(3, 1);
-//        ClientRequestMessage crm = new ClientRequestMessage(correlationId, 42);
-//        MockResponseSender responseSender = new MockResponseSender();
-//        BallotNum prevTried = ledger.getLastTried();
-//        Assert.assertNull(ledger.getOutcome(0));
-//        Assert.assertTrue(prevTried.isNull());
-//        me.receiveClientRequest(responseSender, crm);
-//        Assert.assertEquals(Status.IDLE, me.status);
-//        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
-//        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
-//        Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
-//        Assert.assertEquals(1, me.prevVotes.size());
-//        Assert.assertTrue(containsVote(me.prevVotes, 0, new BallotNum(-1, 0),
-//                new Decree(-1, 0)));
-//        Assert.assertEquals(1, me.voters.size());
-//        Assert.assertTrue(me.voters.contains(me));
-//        Assert.assertEquals(1, me.quorum.size());
-//        Assert.assertTrue(me.quorum.contains(me));
-//        Assert.assertEquals(1, responseSender.responses.size());
-//        prevTried = ledger.getLastTried();
-//        crm = new ClientRequestMessage(correlationId, 44);
-//        me.receiveClientRequest(responseSender, crm);
-//        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
-//        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
-//        Assert.assertEquals(Long.valueOf(42), ledger.getOutcome(0));
-//        Assert.assertEquals(1, me.prevVotes.size());
-//        Assert.assertTrue(containsVote(me.prevVotes, 0, prevTried,
-//                new Decree(0, 42)));
-//        Assert.assertEquals(1, me.voters.size());
-//        Assert.assertTrue(me.voters.contains(me));
-//        Assert.assertEquals(1, me.quorum.size());
-//        Assert.assertTrue(me.quorum.contains(me));
-//        Assert.assertEquals(2, responseSender.responses.size());
-//        ClientResponseMessage responseMessage = (ClientResponseMessage) PaxosMessages.parseMessage(correlationId, responseSender.responses.get(1));
-//        Assert.assertEquals(42, responseMessage.agreedValue); // Value does not change
-//    }
 
 
     boolean containsVote(Set<Vote> votes, int process, BallotNum b, Decree d) {
@@ -261,7 +202,6 @@ public class TestMultiPaxos {
     static final class MockRemoteParticipant extends ThisPaxosParticipant {
 
         List<NextBallotMessage> nextBallotMessages = new ArrayList<>();
-        List<LastVoteMessage> lastVoteMessages = new ArrayList<>();
         List<BeginBallotMessage> beginBallotMessages = new ArrayList<>();
         List<SuccessMessage> successMessages = new ArrayList<>();
 
@@ -276,7 +216,6 @@ public class TestMultiPaxos {
 
         @Override
         public void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
-            lastVoteMessages.add(new LastVoteMessage(b, pid, cnum, votes));
         }
 
         @Override

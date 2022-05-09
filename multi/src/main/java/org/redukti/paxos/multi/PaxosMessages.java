@@ -38,8 +38,8 @@ public class PaxosMessages {
     static final int CLIENT_RESPONSE_MESSAGE = 8;
 
     public static PaxosMessage parseMessage(CorrelationId correlationId, ByteBuffer bb) {
-        int messageId = bb.getShort();
-        switch (messageId) {
+        int messageType = bb.getShort();
+        switch (messageType) {
             case NEXT_BALLOT_MESSAGE: {
                 return new NextBallotMessage(bb);
             }
@@ -61,11 +61,11 @@ public class PaxosMessages {
             case CLIENT_REQUEST_MESSAGE: {
                 return new ClientRequestMessage(correlationId, bb);
             }
-//            case CLIENT_RESPONSE_MESSAGE: {
-//                return new ClientResponseMessage(bb);
-//            }
+            case CLIENT_RESPONSE_MESSAGE: {
+                return new ClientResponseMessage(bb);
+            }
             default: {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("Unknown message type " + messageType);
             }
         }
     }
