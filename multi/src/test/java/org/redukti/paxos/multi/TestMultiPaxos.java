@@ -114,10 +114,34 @@ public class TestMultiPaxos {
         remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
         assertEquals(ledger.getCommitNum(), r1ledger.getCommitNum());
         Assert.assertEquals(Status.POLLING, me.status);
-//        // quorum not reached
-//        for (MockRemoteParticipant remoteParticipant: remotes) {
-//            Assert.assertEquals(0, remoteParticipant.ballotsStarted.size());
-//        }
+        Assert.assertEquals(1, remote1.beginBallotMessages.size());
+        Assert.assertEquals(0, remote1.beginBallotMessages.get(0).committedDecrees.length);
+        Assert.assertEquals(1, remote1.beginBallotMessages.get(0).chosenDecrees.length);
+        Assert.assertEquals(4, remote1.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
+        Assert.assertEquals(42, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assert.assertEquals(1, remote2.beginBallotMessages.size());
+        Assert.assertEquals(0, remote2.beginBallotMessages.get(0).committedDecrees.length);
+        Assert.assertEquals(1, remote2.beginBallotMessages.get(0).chosenDecrees.length);
+        Assert.assertEquals(4, remote2.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
+        Assert.assertEquals(42, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
+
+        remote2.receiveBeginBallot(remote2.beginBallotMessages.get(0));
+        Assert.assertEquals(1, remote1.beginBallotMessages.size());
+        Assert.assertEquals(2, remote2.beginBallotMessages.size());
+        Assert.assertEquals(1, remote2.beginBallotMessages.get(1).chosenDecrees.length);
+        Assert.assertEquals(4, remote2.beginBallotMessages.get(1).chosenDecrees[0].decreeNum);
+        Assert.assertEquals(42, remote2.beginBallotMessages.get(1).chosenDecrees[0].value);
+        Assert.assertEquals(4, remote2.beginBallotMessages.get(1).committedDecrees.length);
+
+        remote2.receiveBeginBallot(remote2.beginBallotMessages.get(1));
+        Assert.assertEquals(4, ledger.getCommitNum());
+        Assert.assertEquals(1, remote1.successMessages.size());
+        Assert.assertEquals(1, remote2.successMessages.size());
+        remote1.receiveSuccess(remote1.successMessages.get(0));
+        remote2.receiveSuccess(remote2.successMessages.get(0));
+        Assert.assertEquals(4, r1ledger.getCommitNum());
+        Assert.assertEquals(4, r2ledger.getCommitNum());
+
 //        BallotNum currentballot = ledger.getLastTried();
 //        Assert.assertNull(ledger.getOutcome(0));
 //        Vote remote1Vote = new Vote(remote1.getId(), new BallotNum(-1,remote1.getId()), new Decree(-1,0));
@@ -238,6 +262,8 @@ public class TestMultiPaxos {
 
         List<NextBallotMessage> nextBallotMessages = new ArrayList<>();
         List<LastVoteMessage> lastVoteMessages = new ArrayList<>();
+        List<BeginBallotMessage> beginBallotMessages = new ArrayList<>();
+        List<SuccessMessage> successMessages = new ArrayList<>();
 
         public MockRemoteParticipant(int id, Ledger ledger) {
             super(id, ledger);
@@ -255,7 +281,7 @@ public class TestMultiPaxos {
 
         @Override
         public void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
-
+            beginBallotMessages.add(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees));
         }
 
         @Override
@@ -270,7 +296,7 @@ public class TestMultiPaxos {
 
         @Override
         public void sendSuccess(Decree[] decrees) {
-
+            successMessages.add(new SuccessMessage(decrees));
         }
     }
 

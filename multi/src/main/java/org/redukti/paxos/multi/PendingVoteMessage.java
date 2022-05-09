@@ -83,7 +83,7 @@ public class PendingVoteMessage implements PaxosMessage, ParticipantInfo {
                 "type=" + MESSAGE_TYPE +
                 ", b=" + b +
                 ", pid=" + pid +
-                ", num=" + cnum +
+                ", cnum=" + cnum +
                 '}';
     }
 }

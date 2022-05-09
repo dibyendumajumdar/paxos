@@ -51,7 +51,7 @@ public class BeginBallotMessage implements PaxosMessage {
         this.pid = pid;
         this.cnum = cnum;
         this.chosenDecrees = chosenDecrees;
-        this.committedDecrees = new Decree[0];
+        this.committedDecrees = committedDecrees;
     }
 
     public BeginBallotMessage(ByteBuffer bb) {
