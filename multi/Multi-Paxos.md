@@ -13,7 +13,7 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `Decree` - represents the value being agreed upon, i.e. the value being voted on. 
 * `Decree number (dnum)` - decrees are numbered from 0, and sequentially allocated
 * `Ballot Number (b)` - a unique number made up of a pair - proposal number, and process id. Ballot Numbers are sorted by proposal number, followed by process id.
-* `Process id` - a unique id given to each process.
+* `Process pid` - a unique id given to each process.
 * `Proposal number (pnum)` - a monotonically increasing sequence number maintained by each process, `-1` indicates none, valid values are `>= 0`.
 * `Vote (v)` - a vote cast by a process, is a tuple containing the process id of the voter, the ballot number, and the decree being voted. Votes are ordered by ballot numbers.
 * `Ledger` - each process must maintain some data in persistent storage - the ledger represents the storage data structure.
@@ -32,7 +32,7 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `maxBal` - The maximum ballot number that process `p` ever agreed to participate in, or `(-1,p.id)` if `p` has never agreed to participate in a ballot.
 * `maxVBal(dnum)` - The ballot number in which `p` last voted or `(-1,p.id)` if `p` never voted, for decree numbered `dnum`.
 * `maxVal(dnum)` - The value of the decree associated with `maxVBal`, i.e. the decree that `p` last voted, or NULL if `p` never voted, for decree numbered `dnum`.
-* `commitNum` - Decree number of last committed decree
+* `commitNum` - Decree number of last sequential committed decree, all decrees <= commitNumber must have been committed
 
 ## Data Maintained by a Process p in memory
 
@@ -43,9 +43,9 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
   * On startup the status is assumed to be `idle`.
 
 * `prevVotes[dnum]` - the set of votes received in `LastVote` messages for the current ballot (i.e. ballot number in `ledger.lastTried`) for each `dnum`.
-* `quorum` - the set of processes including `p`, that responded with `LastVote` messages for current ballot, only meaningful when `status == polling`.
+* `prevVoters` - the set of voters who returned `LastVote` messages
 * `voters` - the set of processes including `p`, from whom `p` has received `Voted` messages in the current ballot, only meaningful when `status == polling`.
-* `decree[]` - if `status == polling`, then the set of decrees in the current ballot, otherwise meaningless.
+* `chosenValues[]` - if `status == polling`, then the set of decrees in the current ballot, otherwise meaningless.
 * `new_dnum` - if `status == polling`, then the `dnum` assigned to client decree assigned for current ballot, otherwise meaningless
 
 ## Messages 
@@ -53,6 +53,7 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `NextBallot` - aka PREPARE 1a - message sent by the ballot conductor.
 * `LastVote` - aka PROMISE 1b - message sent by participant to ballot conductor.
 * `BeginBallot` - aka ACCEPT 2a - messages sent by the ballot conductor.
+* `PendingVote` - message sent by acceptor to indicate willingness to vote, however pending update of outcomes (as acceptor lagging)
 * `Voted` - aka ACCEPTED 2b - message sent by participant to ballot conductor.
 * `Success` - message sent by ballot conductor to all processes once the ballot is successfully completed.
 
@@ -81,36 +82,36 @@ Synod protocol for decree numbers larger than `commitnum`.
 This is executed by each process `q` that receives the `NextBallot` message.
 
 * Let `b` = `NextBallot.b`.
+* To the sender of ballot `b`, i.e. `owner(b)`, send `Success` message for all decrees with outcomes `(dnum,outcome)` from `ledger` where `dnum` > `NextBallot.commitnum`
 * if `b > ledger.maxBal` then
   * Set `ledger.maxBal` to `b`
-  * To the sender of ballot `b`, i.e. `owner(b)`, send `Success` message for all decrees with outcomes `(dnum,outcome)` from `ledger` where `dnum` > `NextBallot.commitnum`
   * To the sender of ballot `b`, i.e. `owner(b)`, send `LastVote` (PROMISE 1b) message with following contents
     * for all decrees that `q` voted in and whose outcome is not in `ledger`:
-      * `voter` - `q.id` (i.e. the id of the process sending the `LastVote`)
+      * `pid` - `q.id` (i.e. the id of the process sending the `LastVote`)
       * `b` - ballot number
       * `v[]` Votes containing
         * `dnum`
         * `ledger.maxVBal(dnum)` 
         * `ledger.maxVal(dnum)`
-    * Set `commitNum` to `ledger.commitNum`.
+      * `commitNum` to `ledger.commitNum`.
     
 In his response to the `NextBallot` message, `q` informs `p` of all decrees numbered greater than `commitnum` that already appear in q's ledger
 (in addition to sending the usual `LastVote` information for decrees not in his ledger), and he asks `p` to send him any decrees numbered `commitnum` or
 less that are not in his ledger.
 
-### Receive `LastVote(owner,b,v[],startCommitnum,endCommitnum)` PROMISE 1b message
+### Receive `LastVote(pid,b,commitNum,v[])` PROMISE 1b message
 
-* if `LastVote.commitnum < commitnum` then send `Success` message to `LastVote.owner` for all decrees with outcomes from `LastVote.commitnum+1` to `commitnum`.
+* if `LastVote.commitnum < ledger.commitnum` then send `Success` message to `LastVote.owner` for all decrees with outcomes from `LastVote.commitnum+1` to `commitnum`.
 * if `b == ledger.lastTried` and `status == trying` then
   * Add vote `v[]` to the set `prevVotes`. Note that two votes that are from different participants (i.e. `LastVote.voter` is different), must be considered as distinct votes here.
-  * If count of all `prevVotes[*]` with ballot `b` is `>=` to `quorumSize` then start polling.
+  * Add `pid` of voter to `prevVoters`
+  * If count `prevVoteers` >= to `quorumSize` then start polling.
 
 ### Start Polling (Phase 2) - Send `BeginBallot(b,decree)` ACCEPT 2a 
 
 This step is enabled when `status=trying` and there is a quorum of votes in `prevVotes[*]` as described above.
 
 * Set `status` to `polling`
-* Set `quorum` to the set of processes in `prevVotes` where `v.b=ledger.lastTried`
 * Set `voters` to the empty set.
 * Let `maxVote = MaxVote(prevVotes)` for each `dnum`
 * Let `new_dnum = -1`.

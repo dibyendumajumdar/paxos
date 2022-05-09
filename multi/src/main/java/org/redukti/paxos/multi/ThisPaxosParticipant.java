@@ -233,6 +233,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void receiveLastVote(LastVoteMessage lv) {
         log.info("Received " + lv);
+        updateParticipant(lv);
         BallotNum b = lv.b;
         BallotNum lastTried = ledger.getLastTried();
         if (b.equals(lastTried) && status == Status.TRYING) {
@@ -241,7 +242,6 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 prevVotes.computeIfAbsent(v.decree.decreeNum, (k) -> new LinkedHashSet<>()).add(v);
             }
             prevVoters.put(lv.pid, lv.cnum);
-            updateParticipant(lv);
             if (prevVoters.size() >= quorumSize()) {
                 startPolling();
             }
@@ -353,8 +353,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     void receivePendingVote(PendingVoteMessage m) {
         log.info("Received " + m);
-        PaxosParticipant p = findParticipant(m.pid);
-        p.sendBeginBallot(m.b, getId(), ledger.getCommitNum(), getChosenDecrees(), getCommittedDecrees(m));
+        BallotNum lastTried = ledger.getLastTried();
+        BallotNum b = m.b;
+        if (b.equals(lastTried) && status == Status.POLLING) {
+            PaxosParticipant p = findParticipant(m.pid);
+            p.sendBeginBallot(m.b, getId(), ledger.getCommitNum(), getChosenDecrees(), getCommittedDecrees(m));
+        }
     }
 
     @Override
