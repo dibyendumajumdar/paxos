@@ -10,15 +10,15 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 
 * `Process (p)` - a Paxos participant (priest in PTP paper).
 * `Ballot` - a referendum on a single decree. Each Ballot is identified by a unique ballot number, and Ballots are ordered by the ballot number. 
-* `Decree` - represents the value being agreed upon, i.e. the value being voted on. 
-* `Decree number (dnum)` - decrees are numbered from 0, and sequentially allocated
-* `Ballot Number (b)` - a unique number made up of a pair - proposal number, and process id. Ballot Numbers are sorted by proposal number, followed by process id.
-* `Process pid` - a unique id given to each process.
+* `Decree` - represents the value being agreed upon, i.e. the value being voted on. If we were replicating a log, then the decree would be the log record. 
+* `Decree number (dnum)` - decrees are numbered from 0, and sequentially allocated, each `dnum` identifies a `decree`.
+* `Process pid` - a unique id given to each process. First process gets `0`, second `1`, etc. The ordering of processes is not specified, however it must be a constant.
 * `Proposal number (pnum)` - a monotonically increasing sequence number maintained by each process, `-1` indicates none, valid values are `>= 0`.
-* `Vote (v)` - a vote cast by a process, is a tuple containing the process id of the voter, the ballot number, and the decree being voted. Votes are ordered by ballot numbers.
+* `Ballot Number (b)` - a unique number made up of a pair - proposal number `pnum`, and process id `pid`. Ballot Numbers are sorted by proposal number, followed by process id.
+* `Vote (v)` - a vote cast by a process, is a tuple containing the `pid` of the voter, the ballot number, and the decree being voted. Votes are ordered by ballot numbers.
 * `Ledger` - each process must maintain some data in persistent storage - the ledger represents the storage data structure.
 * `quorumSize` - `(Number of Participants + 1) / 2`, where Number of participants is an odd number.
-* `commitNum` - The last committed `dnum`.
+* `cnum` - The last sequentially committed `dnum`, i.e. all `dnum`s <= `cnum` are also committed.
 
 ## Functions
 
@@ -30,23 +30,26 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `outcome(dnum)` - this is value of the `decree` in the ledger for given `dnum`, or NULL if there is nothing written yet.
 * `lastTried` - The ballot number that the process `p` last tried to initiate, or `(-1,p.id)` if none.
 * `maxBal` - The maximum ballot number that process `p` ever agreed to participate in, or `(-1,p.id)` if `p` has never agreed to participate in a ballot.
-* `maxVBal(dnum)` - The ballot number in which `p` last voted or `(-1,p.id)` if `p` never voted, for decree numbered `dnum`.
-* `maxVal(dnum)` - The value of the decree associated with `maxVBal`, i.e. the decree that `p` last voted, or NULL if `p` never voted, for decree numbered `dnum`.
-* `commitNum` - Decree number of last sequential committed decree, all decrees <= commitNumber must have been committed
+* `maxVBal(dnum)` - For decree numbered `dnum`, the ballot number in which `p` last voted or `(-1,p.id)` if `p` never voted.
+* `maxVal(dnum)` - For decree numbered `dnum`, the value of the decree associated with `maxVBal`, i.e. the decree that `p` last voted, or NULL if `p` never voted.
+* `cnum` - Decree number of last sequential committed decree, all decrees <= `cnum` must have been committed
+
+Notes: for a given `dnum`, the decree is initially undefined, then goes into `in-ballot` status, and finally into `committed` status.
+Thus `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in `in-ballot` status. Once the decree is committed these functions do not have a meaning.
 
 ## Data Maintained by a Process p in memory
 
 * `status` - the status of process `p`, which can be one of the following:
-  * `idle` - not conducting or trying to begin a ballot
-  * `trying` - trying to begin ballot number `ledger.lastTried`
-  * `polling` - Conducting ballot number `ledger.lastTried`
+  * `idle` - not conducting or trying to begin a ballot - aka FOLLOWING
+  * `trying` - trying to begin ballot number `ledger.lastTried` - aka TRYING_TO_BE_LEADER
+  * `polling` - Conducting ballot number `ledger.lastTried` - aka LEADING
   * On startup the status is assumed to be `idle`.
 
-* `prevVotes[dnum]` - the set of votes received in `LastVote` messages for the current ballot (i.e. ballot number in `ledger.lastTried`) for each `dnum`.
-* `prevVoters` - the set of voters who returned `LastVote` messages
-* `voters` - the set of processes including `p`, from whom `p` has received `Voted` messages in the current ballot, only meaningful when `status == polling`.
+* `prevVotes[dnum]` - For each `dnum`, the set of votes received in `LastVote` messages for the current ballot (i.e. ballot number in `ledger.lastTried`).
+* `prevVoters` - the set of voters who returned `LastVote` messages in phase 1
+* `voters` - the set of processes including `p`, from whom the ballot conductor has received `Voted` messages in the current ballot, only meaningful when `status == polling`.
 * `chosenValues[]` - if `status == polling`, then the set of decrees in the current ballot, otherwise meaningless.
-* `new_dnum` - if `status == polling`, then the `dnum` assigned to client decree assigned for current ballot, otherwise meaningless
+* `chosenDnum` - if `status == polling`, then the `dnum` assigned to client decree assigned for current ballot, otherwise meaningless
 
 ## Messages 
 
@@ -57,7 +60,8 @@ This is my attempt to describe the multi paxos algorithm in a programmer friendl
 * `Voted` - aka ACCEPTED 2b - message sent by participant to ballot conductor.
 * `Success` - message sent by ballot conductor to all processes once the ballot is successfully completed.
 
-The content and timing of each message is described below.
+The content and timing of each message is described below, except for `PendingVote` - the definition and purpose of each message is as per the PTP paper.
+The `PendingVote` message is an additional message used to bring an acceptor up-to-date before it responds with a `Voted` message.
 
 ## Algorithm for Multi Paxos.
 
@@ -67,17 +71,19 @@ The following algorithm must be implemented for each process that is participati
 
 This step is invoked when a new ballot must be started, perhaps on client request.
 
-* If `status` != `idle`, reject request. If `status` != `idle`, `p` is already conducting a ballot.
-* Let `b = ledger.lastTried + 1`, where `1` is added to the proposal number. First valid proposal number is thus `0`, as initial value of `ledger.lastTried` is `(-1, p.id)`.
-* Set `ledger.lastTried` to `b`.
-* Set `p.status` to `trying`.
-* Set `p.prevVotes` to empty set.
-* To each process participating in multi paxos, send `NextBallot(ledger.lastTried, ledger.commitNum)` PREPARE 1a message, including to itself.
+* If `status` == `idle`.
+  * Let `b = ledger.lastTried + 1`, where `1` is added to the proposal number. First valid proposal number is thus `0`, as initial value of `ledger.lastTried` is `(-1, p.id)`.
+  * Set `ledger.lastTried` to `b`.
+  * Set `p.status` to `trying`.
+  * Set `p.prevVotes` and `p.prevVoters` to empty set.
+  * To each process participating in multi paxos, send `NextBallot(ledger.lastTried, p.pid, ledger.commitNum)` PREPARE 1a message, including to itself.
+* Else If `ledger.maxBal == ledger.lastTried` and `status == polling` then and , i.e. process is already a leader
+  * Jump to Start Polling (Phase 2).
 
-If process `p` has all decrees with numbers less than or equal to `commitnum` then he sends a `NextBallot(b,commitnum)` message in all instances of the 
+PTP note: If process `p` has all decrees with numbers less than or equal to `commitnum` then he sends a `NextBallot(b,commitnum)` message in all instances of the 
 Synod protocol for decree numbers larger than `commitnum`.
 
-### Receive `NextBallot(b,commitnum)` PREPARE 1a, conditionally send `LastVote` PROMISE 1b
+### Receive `NextBallot(b,pid,commitnum)` PREPARE 1a, conditionally send `LastVote` PROMISE 1b
 
 This is executed by each process `q` that receives the `NextBallot` message.
 
