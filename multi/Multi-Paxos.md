@@ -6,6 +6,18 @@ Status: WIP
 
 This is my attempt to describe the multi paxos algorithm in a programmer friendly way. 
 
+The multi-paxos algorithm is an extension of the basic-paxos algorithm described in [here](https://github.com/dibyendumajumdar/paxos/blob/main/basic/Basic-Paxos.md).
+
+The key enhancements are as follows:
+
+* Each process maintains multiple decrees in its ledger, and the highest consecutive committed decree number is tracked as `commitNum`. 
+* During the protocol, each process passes its `commitNum` with the message - this allows the receiving process to inform the sender of any decrees committed greater than the sender's `commitNum`.
+* When a new ballot is initiated, it obtains agreement on all pending decrees, not just one of them. Pending decrees are those that are not yet committed but have been voted in some ballot.
+
+In this version of multi-paxos there is no explicit leader election. Rather we assume that clients decide who to contact - and are sticky to a preferred process for a period of time, and the process that is contacted, tries to become leader if it is not already the leader.
+
+The overall algorithm follows closely the description of multi-paxos in the PTP paper, but has the later enhancement that in phase 2, an acceptor can respond even if it has never participated in the ballot before. This requires the acceptor to catch-up on commits it doesn't know about, and we introduce a new message type `PendingVote` to support this requirement.
+
 ## Terms
 
 * `Process (p)` - a Paxos participant (priest in PTP paper).
