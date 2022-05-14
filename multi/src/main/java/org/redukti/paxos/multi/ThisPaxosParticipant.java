@@ -212,6 +212,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveNextBallotEnabled(b, maxBal)) {
+            // TODO status should go to IDLE here if owner(b) != me?
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
@@ -332,6 +333,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveBeginBallotEnabled(b, maxBal)) {
+            // TODO status should go to IDLE here if owner(b) != me?
             for (int i = 0; i < pm.committedDecrees.length; i++) {
                 ledger.setOutcome(pm.committedDecrees[i].decreeNum, pm.committedDecrees[i].value);
             }

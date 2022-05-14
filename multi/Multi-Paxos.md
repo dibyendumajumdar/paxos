@@ -168,16 +168,16 @@ This is executed by each process `q` that receives the `BeginBallot` message.
     * Set `ledger.maxVBal[dnum]` to `BeginBallot.b`
     * Set `ledger.maxVal[dnum]` to `BeginBallot.decree[dnum]`
   * If `q.ledger.commitNum` < `BeginBallot.commitNum` 
-    * Send to the owner of ballot `owner(BeginBallot.b)`, a `PendingVote(b, q.pid, q.ledger.commitNum)` PENDING ACCEPT 2ba message where `b` is `ledger.maxBal`, and `pid` is the process sending the `PendingVoted` message.
+    * Send to the owner of ballot `owner(BeginBallot.b)`, a `PendingVote(b, q.pid, q.ledger.commitNum)` PENDING ACCEPT 2ba message where `pid` is the process sending the `PendingVote` message.
   * Else
-    * Send to the owner of ballot `owner(BeginBallot.b)`, a `Voted(b, q.pid)` ACCEPTED 2b message where `b` is `ledger.maxBal`, and `pid` is the process sending the `Voted` message.
+    * Send to the owner of ballot `owner(BeginBallot.b)`, a `Voted(b, q.pid)` ACCEPTED 2b message where `pid` is the process sending the `Voted` message.
 
 ### Receive `PendingVote(b,voter,commitNum)` PENDING ACCEPT 2ba message
 
 This step is enabled when `status=polling`.
 
 * if `Voted.b == ledger.lastTried` and `status == polling`
-  * Let `commitDecrees` be the set of decrees with `dnum` > `PendingVote.commitNum` that are in `p`'s ledger
+  * Let `p.committedDecrees` be the set of decrees with `dnum` > `PendingVote.commitNum` that are in `p`'s ledger
   * Send `BeginBallot(b,p.pid,p.commitNum,p.chosenValues[],p.committedDecrees[])` ACCEPT 2a to `PendingVote.voter`.
 
 ### Receive `Voted(b,voter)` ACCEPTED 2b message
@@ -187,12 +187,11 @@ This step is enabled when `status=polling`.
 * if `Voted.b == ledger.lastTried` and `status == polling`
   * Add voter process `Voted.voter` to the set of `voters`.
   * if count of `voters` is `>=` to `quorumSize` then
-    * If `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `decree[dnum]` for all `dnum` in `decree`
-    * Send `Success(ledger.outcome[])` for all `dnum` above to all participants, including itself
-    * Set `status` to `idle`
+    * For all `dnum` in `chosenValues` ff `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `chosenValues[dnum]`
+    * Send `Success(chosenValues[])` to all participants, including itself.
 
 ### Receive `Success(outcomes[])` message
 
-* If `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `Success.outcome[dnum]`
-* Set `ledger.commitnum` to max `dnum`
+* For all `Success.outcomes[]`, if `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `Success.outcome[dnum]`
+* Advance `ledger.commitNum` to the highest consecutive committed `dnum`.
 
