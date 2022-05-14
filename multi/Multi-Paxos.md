@@ -12,7 +12,7 @@ The key enhancements are as follows:
 
 * Each process maintains multiple decrees in its ledger, and the highest consecutive committed decree number is tracked as `commitNum`. 
 * During the protocol, each process passes its `commitNum` with the message - this allows the receiving process to inform the sender of any decrees committed greater than the sender's `commitNum`.
-* When a new ballot is initiated, it obtains agreement on all pending decrees, not just one of them. Pending decrees are those that are not yet committed but have been voted in some ballot.
+* When a new ballot is initiated, the conductor obtains agreement on all pending decrees, not just one of them. Pending decrees are those that are not yet committed but have been voted in some ballot.
 
 In this version of multi-paxos there is no explicit leader election. Rather we assume that clients decide who to contact - and are sticky to a preferred process for a period of time, and the process that is contacted, tries to become leader if it is not already the leader.
 
@@ -21,16 +21,16 @@ The overall algorithm follows closely the description of multi-paxos in the PTP 
 ## Terms
 
 * `Process (p)` - a Paxos participant (priest in PTP paper).
-* `Ballot` - a referendum on a single decree. Each Ballot is identified by a unique ballot number, and Ballots are ordered by the ballot number. 
+* `Ballot` - a referendum on a single decree. Each Ballot is identified by a unique ballot number, and ballots are ordered by the ballot number. 
 * `Decree` - represents the value being agreed upon. If we were replicating a log, then the decree would be the log record. 
 * `Decree number (dnum)` - decrees are numbered from 0, and sequentially allocated, each `dnum` identifies a `decree`.
 * `Process pid` - a unique id given to each process. First process gets `0`, second `1`, etc. The ordering of processes is not specified, however it must be a constant.
-* `Proposal number (pnum)` - a monotonically increasing sequence number maintained by each process, `-1` indicates none, valid values are `>= 0`.
+* `Proposal number (pnum)` - a monotonically increasing sequence number maintained by each process, `-1` indicates none, valid values are >= `0`.
 * `Ballot Number (b)` - a unique number made up of a pair - proposal number `pnum`, and process id `pid`. Ballot Numbers are sorted by proposal number, followed by process id.
 * `Vote (v)` - a vote cast by a process, is a tuple containing the `pid` of the voter, the ballot number, and the decree being voted. Votes are ordered by ballot numbers.
 * `Ledger` - each process must maintain some data in persistent storage - the ledger represents the storage data structure.
 * `quorumSize` - `(Number of Participants + 1) / 2`, where Number of participants is an odd number.
-* `cnum` - The last sequentially committed `dnum`, i.e. all `dnum`s <= `cnum` are also committed.
+* `commitNum` - The last sequentially committed `dnum`, i.e. all `dnum`s <= `commitNum` are also committed.
 
 ## Functions
 
@@ -39,15 +39,15 @@ The overall algorithm follows closely the description of multi-paxos in the PTP 
 
 ## Data Maintained in the Ledger
 
-* `outcome(dnum)` - this is value of the `decree` in the ledger for given `dnum`, or NULL if there is nothing written yet. When an outcome is saved, the ledger must check and update `cnum` to be the highest sequential `dnum` that is committed.
+* `outcome(dnum)` - this is value of the `decree` in the ledger for given `dnum`, or NULL if there is nothing written yet. When an outcome is saved, the ledger must check and update `commitNum` to be the highest sequential `dnum` that is committed.
 * `lastTried` - The ballot number that the process `p` last tried to initiate, or `(-1,p.id)` if none.
 * `maxBal` - The maximum ballot number that process `p` ever agreed to participate in, or `(-1,p.id)` if `p` has never agreed to participate in a ballot.
 * `maxVBal(dnum)` - For decree numbered `dnum`, the ballot number in which `p` last voted or `(-1,p.id)` if `p` never voted.
 * `maxVal(dnum)` - For decree numbered `dnum`, the value of the decree associated with `maxVBal`, i.e. the decree that `p` last voted, or NULL if `p` never voted.
-* `cnum` - Decree number of last sequential committed decree, all decrees with `dnum` <= `cnum` must have been committed
+* `commitNum` - Decree number of last sequential committed decree, all decrees with `dnum` <= `commitNum` must have been committed
 
 Notes: for a given `dnum`, the decree is initially undefined, then goes into `in-ballot` status, and finally into `committed` or `noop` status.
-Thus `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in `in-ballot` status. 
+Thus, `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in `in-ballot` status. 
 
 ## Data Maintained by a Process p in memory
 
@@ -73,7 +73,7 @@ Thus `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in 
 * `Success` - message sent by ballot conductor to all processes once the ballot is successfully completed.
 
 The content and timing of each message is described below, except for `PendingVote` - the definition and purpose of each message is as per the PTP paper.
-The `PendingVote` message is an additional message used to bring an process up-to-date before it responds with a `Voted` message.
+The `PendingVote` message is an additional message used to bring a process up-to-date before it responds with a `Voted` message.
 
 ## Algorithm for Multi Paxos.
 
