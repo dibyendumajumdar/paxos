@@ -256,6 +256,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    // TODO We need to ensure there are no gaps in `dnum`s.
+    // TODO assign no-op to all dnums less than max dnum.
     void determineChosenValues() {
         chosenDNum = -1;
         for (long dnum: prevVotes.keySet()) {
