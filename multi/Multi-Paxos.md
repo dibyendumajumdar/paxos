@@ -176,7 +176,7 @@ This is executed by each process `q` that receives the `BeginBallot` message.
 
 This step is enabled when `status=polling`.
 
-* if `Voted.b == ledger.lastTried` and `status == polling`
+* If `Voted.b == ledger.lastTried` and `status == polling`
   * Let `p.committedDecrees` be the set of decrees with `dnum` > `PendingVote.commitNum` that are in `p`'s ledger
   * Send `BeginBallot(b,p.pid,p.commitNum,p.chosenValues[],p.committedDecrees[])` ACCEPT 2a to `PendingVote.voter`.
 
@@ -186,8 +186,8 @@ This step is enabled when `status=polling`.
 
 * if `Voted.b == ledger.lastTried` and `status == polling`
   * Add voter process `Voted.voter` to the set of `voters`.
-  * if count of `voters` is `>=` to `quorumSize` then
-    * For all `dnum` in `chosenValues` ff `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `chosenValues[dnum]`
+  * If count of `voters` is `>=` to `quorumSize` then
+    * For all `dnum` in `chosenValues` if `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `chosenValues[dnum]`
     * Send `Success(chosenValues[])` to all participants, including itself.
 
 ### Receive `Success(outcomes[])` message
