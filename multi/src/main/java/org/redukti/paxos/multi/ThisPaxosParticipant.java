@@ -201,7 +201,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * If the next ballot sender has commitnum < ledger.commitnum then
      * send an update
      */
-    void updateParticipant(ParticipantInfo pm) {
+    synchronized void updateParticipant(ParticipantInfo pm) {
         if (pm.getPid() == getId())
             return;
         Decree[] committedDecrees = getCommittedDecrees(pm);
@@ -211,7 +211,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    Vote[] getVotes() {
+    synchronized Vote[] getVotes() {
         List<BallotedDecree> undecidedBallots = ledger.getUndecidedBallots();
         Vote[] votes = new Vote[undecidedBallots.size()];
         for (int i = 0; i < undecidedBallots.size(); i++) {
@@ -220,7 +220,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         return votes;
     }
 
-    void receiveNextBallot(NextBallotMessage pm) {
+    synchronized void receiveNextBallot(NextBallotMessage pm) {
         log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         updateParticipant(pm);
         BallotNum b = pm.b;
@@ -237,7 +237,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
+    synchronized boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
         if (b.compareTo(maxBal) > 0) {
             ledger.setMaxBal(b);
             return true;
@@ -246,15 +246,15 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
+    public synchronized void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
         receiveLastVote(new LastVoteMessage(b, pid, cnum, votes));
     }
 
-    int quorumSize() {
+    synchronized int quorumSize() {
         return (all.size()+1)/2;
     }
 
-    void receiveLastVote(LastVoteMessage lv) {
+    synchronized void receiveLastVote(LastVoteMessage lv) {
         log.info("Received by " + getId() + " from " + lv.pid + " " + lv);
         updateParticipant(lv);
         BallotNum b = lv.b;
@@ -273,7 +273,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     // TODO We need to ensure there are no gaps in `dnum`s.
     // TODO assign no-op to all dnums less than max dnum.
-    void determineChosenValues() {
+    synchronized void determineChosenValues() {
         chosenDNum = -1;
         for (long dnum: prevVotes.keySet()) {
             Set<Vote> votes = prevVotes.get(dnum);
@@ -298,7 +298,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
 //     Part of Phase2a(b,v)
-    void startPolling() {
+    synchronized void startPolling() {
         status = Status.POLLING;
         determineChosenValues();
         beginBallot();
@@ -313,7 +313,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     /**
      * Part of Phase2a(b,v)
      */
-    void beginBallot() {
+    synchronized void beginBallot() {
         assert status == Status.POLLING;
         BallotNum b = ledger.getLastTried();
         for (PaxosParticipant p: acceptors()) {
@@ -321,7 +321,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    Decree[] getChosenDecrees() {
+    synchronized Decree[] getChosenDecrees() {
         Decree[] decrees = new Decree[chosenValues.size()];
         int i = 0;
         for (Map.Entry<Long,Long> e: chosenValues.entrySet()) {
@@ -335,14 +335,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
+    public synchronized void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
         receiveBeginBallot(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees));
     }
 
     /**
      * Also known as Phase2b(a)
      */
-    void receiveBeginBallot(BeginBallotMessage pm) {
+    synchronized void receiveBeginBallot(BeginBallotMessage pm) {
         log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
@@ -364,7 +364,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
+    synchronized boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
         if (b.compareTo(maxBal) >= 0) {
             ledger.setMaxBal(b);
             return true;
@@ -373,11 +373,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendPendingVote(BallotNum b, int pid, long cnum) {
+    public synchronized void sendPendingVote(BallotNum b, int pid, long cnum) {
         receivePendingVote(new PendingVoteMessage(b, pid, cnum));
     }
 
-    void receivePendingVote(PendingVoteMessage m) {
+    synchronized void receivePendingVote(PendingVoteMessage m) {
         log.info("Received by " + getId() + " from " + m.pid + " " + m);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = m.b;
@@ -388,11 +388,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendVoted(BallotNum prevBal, int id) {
+    public synchronized void sendVoted(BallotNum prevBal, int id) {
         receiveVoted(new VotedMessage(prevBal, id));
     }
 
-    void receiveVoted(VotedMessage vm) {
+    synchronized void receiveVoted(VotedMessage vm) {
         log.info("Received by " + getId() + " from " + vm.pid + " " + vm);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = vm.b;
@@ -415,16 +415,16 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    boolean haveQuorumOfVoters() {
+    synchronized boolean haveQuorumOfVoters() {
         return voters.size() == quorumSize();
     }
 
     @Override
-    public void sendSuccess(Decree[] decrees) {
+    public synchronized void sendSuccess(Decree[] decrees) {
         receiveSuccess(new SuccessMessage(decrees));
     }
 
-    void receiveSuccess(SuccessMessage sm) {
+    synchronized void receiveSuccess(SuccessMessage sm) {
         log.info("Received " + sm);
         for (int i = 0; i < sm.decree.length; i++) {
             Decree d = sm.decree[i];
@@ -435,7 +435,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    void sendClientResponse(Decree[] chosenDecrees) {
+    synchronized void sendClientResponse(Decree[] chosenDecrees) {
         Long chosenValue = null;
         for (int i = 0; i < chosenDecrees.length; i++) {
             Decree d = chosenDecrees[i];
