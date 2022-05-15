@@ -210,11 +210,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    synchronized Vote[] getVotes() {
+    static synchronized Vote[] getVotes(int pid, Ledger ledger) {
         List<BallotedDecree> undecidedBallots = ledger.getUndecidedBallots();
         Vote[] votes = new Vote[undecidedBallots.size()];
         for (int i = 0; i < undecidedBallots.size(); i++) {
-            votes[i] = new Vote(getId(), undecidedBallots.get(i).b, undecidedBallots.get(i).decree);
+            votes[i] = new Vote(pid, undecidedBallots.get(i).b, undecidedBallots.get(i).decree);
         }
         return votes;
     }
@@ -240,7 +240,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             // v is the vote with the largest ballot number
             // that we have cast, or its null if we haven't yet
             // voted in a ballot.
-            Vote[] votes = getVotes();
+            Vote[] votes = getVotes(getId(), ledger);
             p.sendLastVoteMessage(b, getId(), ledger.getCommitNum(), votes);
         } else if (b.compareTo(maxBal) < 0) {
             // The proposer is behind, so let it know that we have seen a later ballot number
@@ -467,6 +467,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         prevVoters.clear();
         chosenValues.clear();
         voters.clear();
+        chosenDNum = -1;
         // TODO inform client
         currentRequest = null;
         currentResponseSender = null;

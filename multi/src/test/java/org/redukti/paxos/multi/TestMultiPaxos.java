@@ -162,11 +162,67 @@ public class TestMultiPaxos {
         Assert.assertEquals(0, me.prevVotes.size());
     }
 
+    @Test
+    public void testCompetingBallotsPhase1() {
+        List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
+        me.addRemotes(remotes);
+        Assert.assertEquals(2, me.quorumSize());
 
-    boolean containsVote(Set<Vote> votes, int process, BallotNum b, Decree d) {
-        Vote v = new Vote(process, b, d);
-        return votes.contains(v);
+        // These are acceptors so they actually only need to message me
+        remote1.addRemotes(List.of(me, remote2));
+        remote2.addRemotes(List.of(me, remote1));
+
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3,1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
+        BallotNum prevTried = ledger.getLastTried();
+        Assert.assertTrue(prevTried.isNull());
+        me.receiveClientRequest(responseSender, crm);
+        Assert.assertEquals(crm, me.currentRequest);
+        Assert.assertEquals(responseSender, me.currentResponseSender);
+        Assert.assertEquals(Status.TRYING, me.status);
+        Assert.assertEquals(prevTried.increment(), ledger.getLastTried());
+        for (MockRemoteParticipant remoteParticipant: remotes) {
+            Assert.assertEquals(1, remoteParticipant.nextBallotMessages.size());
+            Assert.assertEquals(ledger.getLastTried(), remoteParticipant.nextBallotMessages.get(0).b);
+        }
+        Assert.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
+        Assert.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote
+        Assert.assertEquals(1, me.prevVoters.size());
+        Assert.assertTrue(me.prevVoters.containsKey(myId));
+
+        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
+        assertEquals(ledger.getCommitNum(), r1ledger.getCommitNum());
+        Assert.assertEquals(Status.POLLING, me.status);
+
+        Assert.assertEquals(1, me.chosenValues.size());
+        Assert.assertEquals(0, me.chosenDNum);
+
+        Assert.assertEquals(1, remote1.beginBallotMessages.size());
+        Assert.assertEquals(0, remote1.beginBallotMessages.get(0).committedDecrees.length);
+        Assert.assertEquals(1, remote1.beginBallotMessages.get(0).chosenDecrees.length);
+        Assert.assertEquals(0, remote1.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
+        Assert.assertEquals(42, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assert.assertEquals(1, remote2.beginBallotMessages.size());
+        Assert.assertEquals(0, remote2.beginBallotMessages.get(0).committedDecrees.length);
+        Assert.assertEquals(1, remote2.beginBallotMessages.get(0).chosenDecrees.length);
+        Assert.assertEquals(0, remote2.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
+        Assert.assertEquals(42, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assert.assertEquals(0, remote1.lastVoteMessages.size());
+
+        me.receiveNextBallot(new NextBallotMessage(r1ledger.getLastTried().increment(), remote1.pid, r1ledger.getCommitNum()));
+        Assert.assertEquals(Status.IDLE, me.status);
+        Assert.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote
+        Assert.assertEquals(0, me.prevVoters.size());
+        Assert.assertEquals(0, me.chosenValues.size());
+        Assert.assertEquals(-1, me.chosenDNum);
+        Assert.assertEquals(1, remote1.lastVoteMessages.size());
+        Assert.assertEquals(1, remote1.lastVoteMessages.get(0).votes.length);
+        Assert.assertEquals(0, remote1.lastVoteMessages.get(0).votes[0].pid);
+        Assert.assertEquals(ledger.getLastTried(), remote1.lastVoteMessages.get(0).votes[0].ballotNum);
+        Assert.assertEquals(0, remote1.lastVoteMessages.get(0).votes[0].decree.decreeNum);
+        Assert.assertEquals(42L, remote1.lastVoteMessages.get(0).votes[0].decree.value);
     }
+
 
     static final class MockResponseSender implements RequestResponseSender {
         List<ByteBuffer> responses = new ArrayList<>();
@@ -212,6 +268,7 @@ public class TestMultiPaxos {
     static final class MockRemoteParticipant extends ThisPaxosParticipant {
 
         List<NextBallotMessage> nextBallotMessages = new ArrayList<>();
+        List<LastVoteMessage> lastVoteMessages = new ArrayList<>();
         List<BeginBallotMessage> beginBallotMessages = new ArrayList<>();
         List<SuccessMessage> successMessages = new ArrayList<>();
 
@@ -226,6 +283,7 @@ public class TestMultiPaxos {
 
         @Override
         public void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
+            lastVoteMessages.add(new LastVoteMessage(b, pid, cnum, votes));
         }
 
         @Override
