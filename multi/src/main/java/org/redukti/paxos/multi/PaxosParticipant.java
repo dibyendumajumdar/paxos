@@ -53,7 +53,7 @@ public abstract class PaxosParticipant {
 
     public abstract void sendSuccess(Decree[] decrees);
 
-    public abstract void sendNack(BallotNum b, int pid);
+    public abstract void sendNack(BallotNum b, BallotNum maxBal, int pid);
 
     @Override
     public int hashCode() {

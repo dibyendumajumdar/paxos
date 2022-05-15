@@ -159,10 +159,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
         // Set lastTried[p] to any ballot number b, greater than its previous
         // value, such that owner(b) = p.
-        BallotNum b = ledger.getLastTried();
-        // TODO should we also check maxBal here?
-        b = b.increment();
-        assert b.owner() == getId();
+        BallotNum b = ledger.getLastTried(); // highest ballot tried so far
+        BallotNum maxBal = ledger.getMaxBal(); // highest ballot seen so far
+        b = new BallotNum(Math.max(b.proposalNumber,maxBal.proposalNumber)+1, getId());
         ledger.setLastTried(b);
         status = Status.TRYING;
         prevVotes.clear();
@@ -221,8 +220,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     @Override
-    public void sendNack(BallotNum b, int pid) {
-        receiveNack(new NackMessage(b, pid));
+    public void sendNack(BallotNum b, BallotNum maxBal, int pid) {
+        receiveNack(new NackMessage(b, maxBal, pid));
     }
 
     synchronized void receiveNextBallot(NextBallotMessage pm) {
@@ -231,8 +230,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (b.compareTo(maxBal) > 0) {
-            // TODO status should go to IDLE here if owner(b) != me?
             ledger.setMaxBal(b);
+            if (b.owner() != getId() && status != Status.IDLE) {
+                // We got a ballot from another process
+                resetToIdle();
+            }
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
@@ -244,7 +246,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             // The proposer is behind, so let it know that we have seen a later ballot number
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
-            p.sendNack(maxBal, getId());
+            p.sendNack(b, maxBal, getId());
         }
     }
 
@@ -345,8 +347,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (b.compareTo(maxBal) >= 0) {
-            // TODO status should go to IDLE here if owner(b) != me?
             ledger.setMaxBal(b);
+            if (b.owner() != getId() && status != Status.IDLE) {
+                // We got a ballot from another process
+                resetToIdle();
+            }
             for (int i = 0; i < pm.committedDecrees.length; i++) {
                 ledger.setOutcome(pm.committedDecrees[i].decreeNum, pm.committedDecrees[i].value);
             }
@@ -363,7 +368,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             // The proposer is behind, so let it know that we have seen a later ballot number
             int owner = pm.pid; // process that sent us BeginBallotMessage
             PaxosParticipant p = findParticipant(owner);
-            p.sendNack(maxBal, getId());
+            p.sendNack(b, maxBal, getId());
         }
     }
 
@@ -450,8 +455,22 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
 
     synchronized void receiveNack(NackMessage pm) {
+        if (status != Status.IDLE && pm.b.equals(ledger.getLastTried()) && pm.maxBal.compareTo(ledger.getMaxBal()) > 0) {
+            ledger.setMaxBal(pm.maxBal);
+            resetToIdle();
+        }
     }
 
+    synchronized void resetToIdle() {
+        status = Status.IDLE;
+        prevVotes.clear();
+        prevVoters.clear();
+        chosenValues.clear();
+        voters.clear();
+        // TODO inform client
+        currentRequest = null;
+        currentResponseSender = null;
+    }
 
     @Override
     public synchronized void handleRequest(Message request, RequestResponseSender responseSender) {

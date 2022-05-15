@@ -14,26 +14,31 @@ public class NackMessage implements PaxosMessage {
      */
     final BallotNum b;
 
+    final BallotNum maxBal;
+
     /**
      * Sender id;
      */
     final int pid;
 
-    public NackMessage(BallotNum b, int pid) {
+    public NackMessage(BallotNum b, BallotNum maxBal, int pid) {
         this.b = b;
+        this.maxBal = maxBal;
         this.pid = pid;
     }
 
     public NackMessage(ByteBuffer bb) {
         this.b = new BallotNum(bb);
+        this.maxBal = new BallotNum(bb);
         this.pid = bb.getInt();
     }
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + BallotNum.size() + Integer.BYTES);
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + 2*BallotNum.size() + Integer.BYTES);
         bb.putShort((short) getCode());
         b.store(bb);
+        maxBal.store(bb);
         bb.putInt(pid);
         bb.flip();
         return bb;
@@ -48,6 +53,7 @@ public class NackMessage implements PaxosMessage {
     public String toString() {
         return "NackMessage{" +
                 "b=" + b +
+                ", maxBal=" + maxBal +
                 ", pid=" + pid +
                 '}';
     }
