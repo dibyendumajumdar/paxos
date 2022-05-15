@@ -50,7 +50,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     /**
      * Each Paxos process has its unique id.
      */
-    final int myId;
+    final int pid;
+    /**
+     * Ledger is where the process persists the data it needs
+     */
     final Ledger ledger;
 
     /**
@@ -60,20 +63,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     /**
      * If status == POLLING, then the set of quorum members from whom
      * we have received Voted messages in the current ballot; otherwise, meaningless.
-     * See PTP p25.
+     * See PTP p25. (phase 2 voters)
      */
     Set<PaxosParticipant> voters = new LinkedHashSet<>();
     /**
      * The previous votes sent by participants in LastVoteMessages,
-     * by decree number.
+     * by decree number. (phase 1 voters)
      */
     TreeMap<Long, Set<Vote>> prevVotes = new TreeMap<>();
     /**
-     * phase 1 responders, and their commit nums
+     * phase 1 responders, and their commit nums, map from pid to commitNum
      */
     Map<Integer, Long> prevVoters = new LinkedHashMap<>();
     /**
-     * Chosen values for all decrees in ballot, decree number to value mapping
+     * Chosen values for all decrees in ballot, decree number to value mapping.
+     * Only valid when status == POLLING
      */
     TreeMap<Long, Long> chosenValues = new TreeMap<>();
     /**
@@ -81,14 +85,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      */
     Set<PaxosParticipant> all = new LinkedHashSet<>();
 
-    volatile ClientRequestMessage currentRequest;
-    volatile RequestResponseSender currentResponseSender;
+    /**
+     * Current client request
+     */
+    ClientRequestMessage currentRequest;
+    RequestResponseSender currentResponseSender;
+    // TODO we need a queue to hold pending client requests
 
-    volatile long chosenDNum = -1; // meaningful only if there is a client request
+    /**
+     * The dnum assigned to the client request
+     */
+    long chosenDNum = -1; // meaningful only if there is a client request
 
     public ThisPaxosParticipant(int id, Ledger ledger) {
         this.ledger = ledger;
-        this.myId = id;
+        this.pid = id;
         all.add(this);
     }
 
@@ -99,7 +110,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.addAll(remoteParticipants);
     }
 
-    PaxosParticipant findParticipant(int owner) {
+    synchronized PaxosParticipant findParticipant(int owner) {
         for (PaxosParticipant p: all) {
             if (p.getId() == owner)
                 return p;
@@ -109,29 +120,35 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public int getId() {
-        return myId;
+        return pid;
     }
 
     /**
      * Start processing a client request
      * Called from synchronized method so thread-safe
      */
-    void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage pm) {
-        log.info("Received " + pm);
+    synchronized void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
+        log.info("Received " + clientRequestMessage);
         if (currentRequest == null) {
-            this.currentRequest = pm;
+            this.currentRequest = clientRequestMessage;
             this.currentResponseSender = responseSender;
             chosenDNum = -1;
             chosenValues.clear();
             voters.clear();
-            if (status == Status.IDLE)
+            if (status == Status.IDLE) {
+                // try to become the leader
                 tryNewBallot();
+            }
             else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
+                // already the leader so we can skip phase 1
                 startPolling();
+            }
+            else {
+                // TODO can this happen? We need to reset state here?
             }
         }
         else {
-            // queue it
+            // TODO queue it
         }
     }
 
@@ -141,9 +158,6 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * See PTP p26. In theory always enabled but here we enable it when the process is IDLE.
      */
     public synchronized void tryNewBallot() {
-        if (status != Status.IDLE) {
-            return;
-        }
         // Set lastTried[p] to any ballot number b, greater than its previous
         // value, such that owner(b) = p.
         BallotNum b = ledger.getLastTried();
@@ -156,18 +170,18 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         nextBallot(b, ledger.getCommitNum());
     }
 
-    void nextBallot(BallotNum b, long cnum) {
+    synchronized void nextBallot(BallotNum b, long commitNum) {
         for (PaxosParticipant p: all) {
-            p.sendNextBallot(b, myId, cnum);
+            p.sendNextBallot(b, pid, commitNum);
         }
     }
 
     @Override
-    public void sendNextBallot(BallotNum b, int pid, long cnum) {
-        receiveNextBallot(new NextBallotMessage(b,pid,cnum));
+    public synchronized void sendNextBallot(BallotNum b, int pid, long commitNum) {
+        receiveNextBallot(new NextBallotMessage(b,pid,commitNum));
     }
 
-    Decree[] getCommittedDecrees(ParticipantInfo pi) {
+    synchronized Decree[] getCommittedDecrees(ParticipantInfo pi) {
         if (pi.commitNum() < ledger.getCommitNum()) {
             ArrayList<Decree> decrees = new ArrayList<>();
             for (long cnum = pi.commitNum()+1; cnum <= ledger.getCommitNum(); cnum++) {
@@ -345,7 +359,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 p.sendPendingVote(b, getId(), ledger.getCommitNum());
             }
             else {
-                p.sendVoted(b, myId);
+                p.sendVoted(b, pid);
             }
         }
     }

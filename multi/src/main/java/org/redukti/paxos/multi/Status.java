@@ -24,7 +24,7 @@
 package org.redukti.paxos.multi;
 
 public enum Status {
-    IDLE, // Not conducting or trying to begin a ballot
+    IDLE, // Not conducting or trying to begin a ballot, i.e. a follower
     TRYING, // Trying to begin a ballot number ledger.lastTried
-    POLLING // Now conducting ballot number ledger.lastTried
+    POLLING // Now conducting ballot number ledger.lastTried, i.e. leader
 }

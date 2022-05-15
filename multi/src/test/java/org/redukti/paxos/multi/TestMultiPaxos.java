@@ -220,8 +220,8 @@ public class TestMultiPaxos {
         }
 
         @Override
-        public void sendNextBallot(BallotNum b, int pid, long cnum) {
-            nextBallotMessages.add(new NextBallotMessage(b,pid,cnum));
+        public void sendNextBallot(BallotNum b, int pid, long commitNum) {
+            nextBallotMessages.add(new NextBallotMessage(b,pid, commitNum));
         }
 
         @Override
