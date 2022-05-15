@@ -281,7 +281,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         chosenDNum = -1;
         for (long dnum : prevVotes.keySet()) {
             Set<Vote> votes = prevVotes.get(dnum);
-            Vote maxVote = votes.stream().max(Comparator.naturalOrder()).get();
+            Vote maxVote = votes.stream().max(Comparator.naturalOrder()).orElse(null);
             Long value;
             if (maxVote == null || maxVote.ballotNum.isNull()) {
                 if (chosenDNum < 0) {
@@ -367,14 +367,6 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    synchronized boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
-        if (b.compareTo(maxBal) >= 0) {
-            ledger.setMaxBal(b);
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public synchronized void sendPendingVote(BallotNum b, int pid, long cnum) {
         receivePendingVote(new PendingVoteMessage(b, pid, cnum));
@@ -440,8 +432,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     synchronized void sendClientResponse(Decree[] chosenDecrees) {
         Long chosenValue = null;
-        for (int i = 0; i < chosenDecrees.length; i++) {
-            Decree d = chosenDecrees[i];
+        for (Decree d : chosenDecrees) {
             if (chosenDNum >= 0 && d.decreeNum == chosenDNum)
                 chosenValue = d.value;
         }
