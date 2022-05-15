@@ -1,18 +1,18 @@
 /**
  * MIT License
- *
+ * <p>
  * Copyright (c) 2022 Dibyendu Majumdar
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -105,13 +105,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     public synchronized void addRemotes(List<? extends PaxosParticipant> remoteParticipants) {
         Objects.requireNonNull(remoteParticipants);
-        if ((remoteParticipants.size()+1)%2 == 0 || remoteParticipants.size() == 0)
+        if ((remoteParticipants.size() + 1) % 2 == 0 || remoteParticipants.size() == 0)
             throw new IllegalArgumentException("Number of participants must be odd and greater than 1");
         all.addAll(remoteParticipants);
     }
 
     synchronized PaxosParticipant findParticipant(int owner) {
-        for (PaxosParticipant p: all) {
+        for (PaxosParticipant p : all) {
             if (p.getId() == owner)
                 return p;
         }
@@ -138,16 +138,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             if (status == Status.IDLE) {
                 // try to become the leader
                 tryNewBallot();
-            }
-            else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
+            } else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
                 // already the leader so we can skip phase 1
                 startPolling();
-            }
-            else {
+            } else {
                 // TODO can this happen? We need to reset state here?
             }
-        }
-        else {
+        } else {
             // TODO queue it
         }
     }
@@ -174,20 +171,20 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void nextBallot(BallotNum b, long commitNum) {
-        for (PaxosParticipant p: all) {
+        for (PaxosParticipant p : all) {
             p.sendNextBallot(b, pid, commitNum);
         }
     }
 
     @Override
     public synchronized void sendNextBallot(BallotNum b, int pid, long commitNum) {
-        receiveNextBallot(new NextBallotMessage(b,pid,commitNum));
+        receiveNextBallot(new NextBallotMessage(b, pid, commitNum));
     }
 
     synchronized Decree[] getCommittedDecrees(ParticipantInfo pi) {
         if (pi.commitNum() < ledger.getCommitNum()) {
             ArrayList<Decree> decrees = new ArrayList<>();
-            for (long cnum = pi.commitNum()+1; cnum <= ledger.getCommitNum(); cnum++) {
+            for (long cnum = pi.commitNum() + 1; cnum <= ledger.getCommitNum(); cnum++) {
                 Long outcome = ledger.getOutcome(cnum);
                 if (outcome != null) {
                     decrees.add(new Decree(cnum, outcome));
@@ -243,8 +240,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             // voted in a ballot.
             Vote[] votes = getVotes();
             p.sendLastVoteMessage(b, getId(), ledger.getCommitNum(), votes);
-        }
-        else if (b.compareTo(maxBal) < 0) {
+        } else if (b.compareTo(maxBal) < 0) {
             // The proposer is behind, so let it know that we have seen a later ballot number
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
@@ -259,7 +255,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized int quorumSize() {
-        return (all.size()+1)/2;
+        return (all.size() + 1) / 2;
     }
 
     synchronized void receiveLastVote(LastVoteMessage lv) {
@@ -283,7 +279,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // TODO assign no-op to all dnums less than max dnum.
     synchronized void determineChosenValues() {
         chosenDNum = -1;
-        for (long dnum: prevVotes.keySet()) {
+        for (long dnum : prevVotes.keySet()) {
             Set<Vote> votes = prevVotes.get(dnum);
             Vote maxVote = votes.stream().max(Comparator.naturalOrder()).get();
             Long value;
@@ -292,39 +288,32 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                     chosenDNum = dnum;
                 }
                 value = currentRequest.requestedValue;
-            }
-            else {
-                assert(dnum == maxVote.decree.decreeNum);
+            } else {
+                assert (dnum == maxVote.decree.decreeNum);
                 value = maxVote.decree.value;
             }
             chosenValues.put(dnum, value);
         }
         if (chosenDNum < 0) {
-            chosenDNum = ledger.getCommitNum()+1;
+            chosenDNum = ledger.getCommitNum() + 1;
             chosenValues.put(chosenDNum, currentRequest.requestedValue);
         }
     }
 
-//     Part of Phase2a(b,v)
+    //     Part of Phase2a(b,v)
     synchronized void startPolling() {
         status = Status.POLLING;
         determineChosenValues();
         beginBallot();
     }
-//
-//    void abort() {
-//        status = Status.IDLE;
-//        quorum.clear();
-//        voters.clear();
-//    }
-//
+
     /**
      * Part of Phase2a(b,v)
      */
     synchronized void beginBallot() {
         assert status == Status.POLLING;
         BallotNum b = ledger.getLastTried();
-        for (PaxosParticipant p: acceptors()) {
+        for (PaxosParticipant p : acceptors()) {
             p.sendBeginBallot(b, getId(), ledger.getCommitNum(), getChosenDecrees(), new Decree[0]);
         }
     }
@@ -332,7 +321,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     synchronized Decree[] getChosenDecrees() {
         Decree[] decrees = new Decree[chosenValues.size()];
         int i = 0;
-        for (Map.Entry<Long,Long> e: chosenValues.entrySet()) {
+        for (Map.Entry<Long, Long> e : chosenValues.entrySet()) {
             decrees[i++] = new Decree(e.getKey(), e.getValue());
         }
         return decrees;
@@ -367,12 +356,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             PaxosParticipant p = findParticipant(b.processNum);
             if (ledger.getCommitNum() < pm.cnum) {
                 p.sendPendingVote(b, getId(), ledger.getCommitNum());
-            }
-            else {
+            } else {
                 p.sendVoted(b, pid);
             }
-        }
-        else {
+        } else {
             // The proposer is behind, so let it know that we have seen a later ballot number
             int owner = pm.pid; // process that sent us BeginBallotMessage
             PaxosParticipant p = findParticipant(owner);
@@ -416,14 +403,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             PaxosParticipant q = findParticipant(vm.pid);
             voters.add(q);
             if (haveQuorumOfVoters()) {
-                for (Map.Entry<Long,Long> e: chosenValues.entrySet()) {
+                for (Map.Entry<Long, Long> e : chosenValues.entrySet()) {
                     Long v = ledger.getOutcome(e.getKey());
                     if (v == null) {
                         ledger.setOutcome(e.getKey(), e.getValue());
                     }
                 }
                 Decree[] chosenDecrees = getChosenDecrees();
-                for (PaxosParticipant p: all) {
+                for (PaxosParticipant p : all) {
                     p.sendSuccess(chosenDecrees);
                 }
                 sendClientResponse(chosenDecrees);
@@ -480,29 +467,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         PaxosMessage pm = PaxosMessages.parseMessage(request.getCorrelationId(), request.getData());
         if (pm instanceof NextBallotMessage) {
             receiveNextBallot((NextBallotMessage) pm);
-        }
-        else if (pm instanceof LastVoteMessage) {
+        } else if (pm instanceof LastVoteMessage) {
             receiveLastVote((LastVoteMessage) pm);
-        }
-        else if (pm instanceof BeginBallotMessage) {
+        } else if (pm instanceof BeginBallotMessage) {
             receiveBeginBallot((BeginBallotMessage) pm);
-        }
-        else if (pm instanceof PendingVoteMessage) {
+        } else if (pm instanceof PendingVoteMessage) {
             receivePendingVote((PendingVoteMessage) pm);
-        }
-        else if (pm instanceof VotedMessage) {
+        } else if (pm instanceof VotedMessage) {
             receiveVoted((VotedMessage) pm);
-        }
-        else if (pm instanceof SuccessMessage) {
+        } else if (pm instanceof SuccessMessage) {
             receiveSuccess((SuccessMessage) pm);
-        }
-        else if (pm instanceof NackMessage) {
+        } else if (pm instanceof NackMessage) {
             receiveNack((NackMessage) pm);
-        }
-        else if (pm instanceof ClientRequestMessage) {
+        } else if (pm instanceof ClientRequestMessage) {
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
-        }
-        else {
+        } else {
             log.error("Unknown message " + pm);
         }
     }
