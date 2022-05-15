@@ -34,8 +34,9 @@ public class PaxosMessages {
     static final int PENDING_VOTE_MESSAGE = 4;
     static final int VOTED_MESSAGE = 5;
     static final int SUCCESS_MESSAGE = 6;
-    static final int CLIENT_REQUEST_MESSAGE = 7;
-    static final int CLIENT_RESPONSE_MESSAGE = 8;
+    static final int NACK_MESSAGE = 7;
+    static final int CLIENT_REQUEST_MESSAGE = 8;
+    static final int CLIENT_RESPONSE_MESSAGE = 9;
 
     public static PaxosMessage parseMessage(CorrelationId correlationId, ByteBuffer bb) {
         int messageType = bb.getShort();
@@ -57,6 +58,9 @@ public class PaxosMessages {
             }
             case SUCCESS_MESSAGE: {
                 return new SuccessMessage(bb);
+            }
+            case NACK_MESSAGE: {
+                return new NackMessage(bb);
             }
             case CLIENT_REQUEST_MESSAGE: {
                 return new ClientRequestMessage(correlationId, bb);

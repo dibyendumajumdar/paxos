@@ -80,6 +80,11 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
+    public void sendNack(BallotNum b, int pid) {
+        remote.connection.submit(logit(new NackMessage(b, pid)).serialize(), this, Duration.ofSeconds(5));
+    }
+
+    @Override
     public void sendSuccess(Decree[] decrees) {
         remote.connection.submit(logit(new SuccessMessage(decrees)).serialize(), this, Duration.ofSeconds(5));
     }

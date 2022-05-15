@@ -45,12 +45,15 @@ public abstract class PaxosParticipant {
     // equivalent to phase 2 (a) accept request
     public abstract void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees);
 
+    // a precursor to Voted message, sent when an acceptor is behind (i.e. does not know about all the commits)
     public abstract void sendPendingVote(BallotNum b, int pid, long cnum);
 
     // equivalent to phase 2 (b) accepted message
     public abstract void sendVoted(BallotNum prevBal, int id);
 
     public abstract void sendSuccess(Decree[] decrees);
+
+    public abstract void sendNack(BallotNum b, int pid);
 
     @Override
     public int hashCode() {

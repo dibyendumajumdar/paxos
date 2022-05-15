@@ -158,9 +158,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * See PTP p26. In theory always enabled but here we enable it when the process is IDLE.
      */
     public synchronized void tryNewBallot() {
+        assert status == Status.IDLE;
+
         // Set lastTried[p] to any ballot number b, greater than its previous
         // value, such that owner(b) = p.
         BallotNum b = ledger.getLastTried();
+        // TODO should we also check maxBal here?
         b = b.increment();
         assert b.owner() == getId();
         ledger.setLastTried(b);
@@ -220,13 +223,19 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         return votes;
     }
 
+    @Override
+    public void sendNack(BallotNum b, int pid) {
+        receiveNack(new NackMessage(b, pid));
+    }
+
     synchronized void receiveNextBallot(NextBallotMessage pm) {
         log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         updateParticipant(pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
-        if (receiveNextBallotEnabled(b, maxBal)) {
+        if (b.compareTo(maxBal) > 0) {
             // TODO status should go to IDLE here if owner(b) != me?
+            ledger.setMaxBal(b);
             int owner = b.processNum; // process that sent us NextBallotMessage
             PaxosParticipant p = findParticipant(owner);
             // v is the vote with the largest ballot number
@@ -235,15 +244,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             Vote[] votes = getVotes();
             p.sendLastVoteMessage(b, getId(), ledger.getCommitNum(), votes);
         }
+        else if (b.compareTo(maxBal) < 0) {
+            // The proposer is behind, so let it know that we have seen a later ballot number
+            int owner = b.processNum; // process that sent us NextBallotMessage
+            PaxosParticipant p = findParticipant(owner);
+            p.sendNack(maxBal, getId());
+        }
     }
 
-    synchronized boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
-        if (b.compareTo(maxBal) > 0) {
-            ledger.setMaxBal(b);
-            return true;
-        }
-        return false;
-    }
 
     @Override
     public synchronized void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
@@ -336,6 +344,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     @Override
     public synchronized void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
+        assert b.processNum == pid;
         receiveBeginBallot(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees));
     }
 
@@ -346,8 +355,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
-        if (receiveBeginBallotEnabled(b, maxBal)) {
+        if (b.compareTo(maxBal) >= 0) {
             // TODO status should go to IDLE here if owner(b) != me?
+            ledger.setMaxBal(b);
             for (int i = 0; i < pm.committedDecrees.length; i++) {
                 ledger.setOutcome(pm.committedDecrees[i].decreeNum, pm.committedDecrees[i].value);
             }
@@ -361,6 +371,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             else {
                 p.sendVoted(b, pid);
             }
+        }
+        else {
+            // The proposer is behind, so let it know that we have seen a later ballot number
+            int owner = pm.pid; // process that sent us BeginBallotMessage
+            PaxosParticipant p = findParticipant(owner);
+            p.sendNack(maxBal, getId());
         }
     }
 
@@ -454,6 +470,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         voters.clear();
     }
 
+
+    synchronized void receiveNack(NackMessage pm) {
+    }
+
+
     @Override
     public synchronized void handleRequest(Message request, RequestResponseSender responseSender) {
         PaxosMessage pm = PaxosMessages.parseMessage(request.getCorrelationId(), request.getData());
@@ -474,6 +495,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         else if (pm instanceof SuccessMessage) {
             receiveSuccess((SuccessMessage) pm);
+        }
+        else if (pm instanceof NackMessage) {
+            receiveNack((NackMessage) pm);
         }
         else if (pm instanceof ClientRequestMessage) {
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
