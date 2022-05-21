@@ -32,7 +32,7 @@ import java.util.Arrays;
 /**
  * Also Phase2a ACCEPT message
  */
-public class BeginBallotMessage implements PaxosMessage {
+public class BeginBallotMessage implements PaxosMessage, ParticipantInfo {
 
     static final String MESSAGE_TYPE = "ACCEPT (2a)";
 
@@ -90,6 +90,16 @@ public class BeginBallotMessage implements PaxosMessage {
         }
         bb.flip();
         return bb;
+    }
+
+    @Override
+    public int getPid() {
+        return pid;
+    }
+
+    @Override
+    public long commitNum() {
+        return cnum;
     }
 
     @Override

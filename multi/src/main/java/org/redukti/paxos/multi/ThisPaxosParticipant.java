@@ -128,7 +128,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * Called from synchronized method so thread-safe
      */
     synchronized void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
-        log.info("Received " + clientRequestMessage);
+        log.info("Received {}", clientRequestMessage);
         if (currentRequest == null) {
             this.currentRequest = clientRequestMessage;
             this.currentResponseSender = responseSender;
@@ -224,8 +224,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receiveNack(new NackMessage(b, maxBal, pid));
     }
 
+    private void logMessageReceived(ParticipantInfo m) {
+        log.info("Received by {} from {} {}", getId(), m.getPid(), m);
+    }
+
     synchronized void receiveNextBallot(NextBallotMessage pm) {
-        log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
+        logMessageReceived(pm);
         updateParticipant(pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
@@ -261,7 +265,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void receiveLastVote(LastVoteMessage lv) {
-        log.info("Received by " + getId() + " from " + lv.pid + " " + lv);
+        logMessageReceived(lv);
         updateParticipant(lv);
         BallotNum b = lv.b;
         BallotNum lastTried = ledger.getLastTried();
@@ -343,7 +347,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * Also known as Phase2b(a)
      */
     synchronized void receiveBeginBallot(BeginBallotMessage pm) {
-        log.info("Received by " + getId() + " from " + pm.pid + " " + pm);
+        logMessageReceived(pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (b.compareTo(maxBal) >= 0) {
@@ -378,7 +382,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void receivePendingVote(PendingVoteMessage m) {
-        log.info("Received by " + getId() + " from " + m.pid + " " + m);
+        logMessageReceived(m);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = m.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
@@ -393,7 +397,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void receiveVoted(VotedMessage vm) {
-        log.info("Received by " + getId() + " from " + vm.pid + " " + vm);
+        log.info("Received by {} from {} {}", getId(), vm.pid, vm);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = vm.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
@@ -425,7 +429,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void receiveSuccess(SuccessMessage sm) {
-        log.info("Received " + sm);
+        log.info("Received {}", sm);
         for (int i = 0; i < sm.decree.length; i++) {
             Decree d = sm.decree[i];
             Long v = ledger.getOutcome(d.decreeNum);
@@ -493,7 +497,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         } else if (pm instanceof ClientRequestMessage) {
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
         } else {
-            log.error("Unknown message " + pm);
+            log.error("Unknown message {}", pm);
         }
     }
 
