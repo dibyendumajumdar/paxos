@@ -201,7 +201,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     boolean receiveNextBallotEnabled(BallotNum b, BallotNum maxBal) {
         switch (version) {
-            case PART_TIME_PARLIAMENT_VERSION ->  {
+            case PART_TIME_PARLIAMENT_VERSION: {
                 if (b.compareTo(maxBal) >= 0) {
                     ledger.setMaxBal(b);
                     maxBal = b;
@@ -209,14 +209,15 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                 BallotNum maxVBal = ledger.getMaxVBal();
                 return maxBal.compareTo(maxVBal) > 0;
             }
-            case STPT_2019_TLAPLUS_VERSION -> {
+            case STPT_2019_TLAPLUS_VERSION: {
                 if (b.compareTo(maxBal) > 0) {
                     ledger.setMaxBal(b);
                     return true;
                 }
                 return false;
             }
-            default -> throw new IllegalStateException();
+            default:
+                throw new IllegalStateException();
         }
     }
 
@@ -286,9 +287,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     Set<PaxosParticipant> acceptors() {
         switch (version) {
-            case PART_TIME_PARLIAMENT_VERSION -> { return quorum; }
-            case STPT_2019_TLAPLUS_VERSION -> { return all; }
-            default -> throw new IllegalStateException();
+            case PART_TIME_PARLIAMENT_VERSION: {
+                return quorum;
+            }
+            case STPT_2019_TLAPLUS_VERSION: {
+                return all;
+            }
+            default:
+                throw new IllegalStateException();
         }
     }
 
@@ -313,14 +319,14 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     boolean receiveBeginBallotEnabled(BallotNum b, BallotNum maxBal) {
         switch (version) {
-            case PART_TIME_PARLIAMENT_VERSION -> {
+            case PART_TIME_PARLIAMENT_VERSION: {
                 if (b.equals(maxBal)) {
                     BallotNum maxVBal = ledger.getMaxVBal();
                     return b.compareTo(maxVBal) > 0;
                 }
                 break;
             }
-            case STPT_2019_TLAPLUS_VERSION -> {
+            case STPT_2019_TLAPLUS_VERSION: {
                 if (b.compareTo(maxBal) >= 0) {
                     ledger.setMaxBal(b);
                     return true;
@@ -357,8 +363,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     boolean haveQuorumOfVoters() {
         switch (version) {
-            case PART_TIME_PARLIAMENT_VERSION -> { return voters.containsAll(quorum); }
-            case STPT_2019_TLAPLUS_VERSION -> { return voters.size() == quorumSize(); }
+            case PART_TIME_PARLIAMENT_VERSION: {
+                return voters.containsAll(quorum);
+            }
+            case STPT_2019_TLAPLUS_VERSION: {
+                return voters.size() == quorumSize();
+            }
         }
         return false;
     }
