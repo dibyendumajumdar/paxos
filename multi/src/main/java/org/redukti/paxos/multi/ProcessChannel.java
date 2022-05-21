@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ProcessChannel implements ConnectionListener {
 
-    final static Logger log = LoggerFactory.getLogger(ProcessChannel.class);
+    static final Logger log = LoggerFactory.getLogger(ProcessChannel.class);
 
     final int id;
     final ProcessDef def;
@@ -56,15 +56,13 @@ public class ProcessChannel implements ConnectionListener {
 
     @Override
     public void onConnectionFailed() {
-        log.error("Failed to connect to remote process " + def + "; will retry in 10 seconds");
-        executorService.schedule(() -> {
-            connect();
-        }, 1, TimeUnit.SECONDS);
+        log.error("Failed to connect to remote process {}; will retry in 10 seconds", def);
+        executorService.schedule(this::connect, 1, TimeUnit.SECONDS);
     }
 
     @Override
     public void onConnectionSuccess() {
-        log.info("Connected to remote process " + def);
+        log.info("Connected to remote process {}", def);
     }
 
     @Override

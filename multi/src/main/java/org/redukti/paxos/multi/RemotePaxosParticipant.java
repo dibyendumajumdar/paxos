@@ -90,16 +90,6 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
     }
 
     @Override
-    public void onTimeout() {
-
-    }
-
-    @Override
-    public void onException(Exception e) {
-
-    }
-
-    @Override
     public void onResponse(Message response) {
 
     }

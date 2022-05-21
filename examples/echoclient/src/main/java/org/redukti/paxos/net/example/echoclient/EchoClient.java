@@ -48,16 +48,6 @@ public class EchoClient implements ResponseHandler {
     }
 
     @Override
-    public void onTimeout() {
-
-    }
-
-    @Override
-    public void onException(Exception e) {
-
-    }
-
-    @Override
     public void onResponse(Message response) {
         int value = response.getData().rewind().getInt();
         System.out.println("Received back " + value);

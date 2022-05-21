@@ -70,15 +70,6 @@ public class MultiPaxosClient implements ResponseHandler {
     }
 
     @Override
-    public void onTimeout() {
-
-    }
-
-    @Override
-    public void onException(Exception e) {
-    }
-
-    @Override
     public void onResponse(Message response) {
         ClientResponseMessage clientResponseMessage = (ClientResponseMessage) PaxosMessages.parseMessage(response.getCorrelationId(), response.getData());
         System.out.println("Received back " + clientResponseMessage);

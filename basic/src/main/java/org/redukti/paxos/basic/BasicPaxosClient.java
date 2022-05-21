@@ -71,16 +71,6 @@ public class BasicPaxosClient implements ResponseHandler {
     }
 
     @Override
-    public void onTimeout() {
-
-    }
-
-    @Override
-    public void onException(Exception e) {
-
-    }
-
-    @Override
     public void onResponse(Message response) {
         ClientResponseMessage clientResponseMessage = (ClientResponseMessage) PaxosMessages.parseMessage(response.getCorrelationId(), response.getData());
         long value = clientResponseMessage.agreedValue;
