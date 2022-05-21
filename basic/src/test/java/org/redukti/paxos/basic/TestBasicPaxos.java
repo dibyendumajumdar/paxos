@@ -291,28 +291,28 @@ public class TestBasicPaxos {
         }
 
         @Override
-        public void setPrevBallot(BallotNum ballot, long dnum, long value) {
+        public void setMaxVBal(BallotNum ballot, long dnum, long value) {
             prevBal = ballot;
             prevDecree = new Decree(dnum, value);
         }
 
         @Override
-        public BallotNum getPrevBallot(long dnum) {
+        public BallotNum getMaxVBal(long dnum) {
             return prevBal;
         }
 
         @Override
-        public Decree getPrevDec(long dnum) {
+        public Decree getMaxVal(long dnum) {
             return prevDecree;
         }
 
         @Override
-        public void setNextBallot(BallotNum ballot) {
+        public void setMaxBal(BallotNum ballot) {
             this.nextBal = ballot;
         }
 
         @Override
-        public BallotNum getNextBallot() {
+        public BallotNum getMaxBal() {
             return nextBal;
         }
 

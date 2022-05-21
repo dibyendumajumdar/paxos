@@ -74,10 +74,10 @@ public class TestLedger {
     private void checkInvariantsForNewLedger(String basePath) throws Exception {
         checkSize(new File(basePath,"l1"), 0);
         try (Ledger ledger = LedgerImpl.open(basePath, "l1", ID)) {
-            Assertions.assertEquals(NEG_INF, ledger.getNextBallot());
+            Assertions.assertEquals(NEG_INF, ledger.getMaxBal());
             Assertions.assertEquals(NEG_INF, ledger.getLastTried());
-            Assertions.assertEquals(NEG_INF, ledger.getPrevBallot());
-            Assertions.assertEquals(NULL_DECREE, ledger.getPrevDec());
+            Assertions.assertEquals(NEG_INF, ledger.getMaxVBal());
+            Assertions.assertEquals(NULL_DECREE, ledger.getMaxVal());
             Assertions.assertEquals(-1, ledger.getCommitNum());
             Assertions.assertEquals(0, ledger.getUndecidedBallots().size());
         }

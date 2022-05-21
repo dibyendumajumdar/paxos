@@ -349,7 +349,7 @@ public class TestMultiPaxos {
         }
 
         @Override
-        public void setPrevBallot(BallotNum ballot, long dnum, long value) {
+        public void setMaxVBal(BallotNum ballot, long dnum, long value) {
             if (outcomes.containsKey(dnum)) {
                 throw new IllegalArgumentException();
             }
@@ -357,7 +357,7 @@ public class TestMultiPaxos {
         }
 
         @Override
-        public BallotNum getPrevBallot(long dnum) {
+        public BallotNum getMaxVBal(long dnum) {
             Pair<BallotNum, Decree> pair = inflightBallots.get(dnum);
             if (pair == null)
                 return new BallotNum(-1, id);
@@ -365,7 +365,7 @@ public class TestMultiPaxos {
         }
 
         @Override
-        public Decree getPrevDec(long dnum) {
+        public Decree getMaxVal(long dnum) {
             Pair<BallotNum, Decree> pair = inflightBallots.get(dnum);
             if (pair == null)
                 return new Decree(-1, 0);
@@ -373,12 +373,12 @@ public class TestMultiPaxos {
         }
 
         @Override
-        public void setNextBallot(BallotNum ballot) {
+        public void setMaxBal(BallotNum ballot) {
             this.nextBal = ballot;
         }
 
         @Override
-        public BallotNum getNextBallot() {
+        public BallotNum getMaxBal() {
             return nextBal;
         }
 

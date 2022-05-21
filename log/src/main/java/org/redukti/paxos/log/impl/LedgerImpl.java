@@ -430,6 +430,7 @@ public class LedgerImpl implements Ledger {
 
     @Override
     public void setOutcome(long decreeNum, long data) {
+        // Since value is committed ballot must be set to neg INF i.e. null
         setValue(decreeNum, new Value(VALUE_COMMITTED, new BallotNum(-1,id), data));
         // This is not efficient as we don't have caching yet
         // We want to ensure that commitNum tracks the lowest consecutive committed decree
@@ -495,30 +496,30 @@ public class LedgerImpl implements Ledger {
     }
 
     @Override
-    public void setPrevBallot(BallotNum ballot, long dnum, long value) {
+    public void setMaxVBal(BallotNum ballot, long dnum, long value) {
         if (getOutcome(dnum) != null)
             throw new IllegalArgumentException("Outcome already stored at decree number " + dnum);
         setValue(dnum,new Value(VALUE_IN_BALLOT, ballot, value));
     }
 
     @Override
-    public BallotNum getPrevBallot(long dnum) {
+    public BallotNum getMaxVBal(long dnum) {
         return getValue(dnum).maxVBal;
     }
 
     @Override
-    public Decree getPrevDec(long dnum) {
+    public Decree getMaxVal(long dnum) {
         return new Decree(dnum, getValue(dnum).value);
     }
 
     @Override
-    public void setNextBallot(BallotNum ballot) {
+    public void setMaxBal(BallotNum ballot) {
         header.lastBallot = ballot;
         writeHeader();
     }
 
     @Override
-    public BallotNum getNextBallot() {
+    public BallotNum getMaxBal() {
         return header.lastBallot;
     }
 
