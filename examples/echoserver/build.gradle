@@ -16,8 +16,8 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.25'
     implementation 'ch.qos.logback:logback-classic:1.2.3'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+    // Use JUnit test framework.
+    testImplementation 'junit:junit:4.13.1'
 }
 
 test {
