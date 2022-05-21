@@ -6,7 +6,6 @@ package org.redukti.paxos.net.impl;
 
 import org.redukti.paxos.net.api.Connection;
 import org.redukti.paxos.net.api.ConnectionListener;
-import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
 
 import java.nio.ByteBuffer;
@@ -40,6 +39,11 @@ public class ConnectionImpl extends ProtocolHandler implements Connection {
 
     public void setErrored() {
         failed();
+    }
+
+    @Override
+    public boolean isErrored() {
+        return !isOkay();
     }
 
     @Override

@@ -37,6 +37,10 @@ public class ClientRequestMessage implements PaxosMessage {
         this.requestedValue = requestedValue;
     }
 
+    public ClientRequestMessage(long requestedValue) {
+        this(new CorrelationId(-1, -1), requestedValue);
+    }
+
     public ClientRequestMessage(CorrelationId correlationId, ByteBuffer bb) {
         this.correlationId = correlationId;
         this.requestedValue = bb.getLong();
@@ -44,8 +48,8 @@ public class ClientRequestMessage implements PaxosMessage {
 
     @Override
     public ByteBuffer serialize() {
-        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES+Long.BYTES);
-        bb.putShort((short)getCode());
+        ByteBuffer bb = ByteBuffer.allocate(Short.BYTES + Long.BYTES);
+        bb.putShort((short) getCode());
         bb.putLong(requestedValue);
         return bb.flip();
     }

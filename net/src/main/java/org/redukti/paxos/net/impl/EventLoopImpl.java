@@ -18,7 +18,10 @@ import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.Objects;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EventLoopImpl implements EventLoop {
@@ -206,7 +209,7 @@ public class EventLoopImpl implements EventLoop {
             }
         } catch (Exception e) {
             connection.setErrored();
-            log.error("Error occurred when completing connection " + connection, e.getMessage());
+            log.error("Error occurred when completing connection " + connection + ": " + e.getMessage());
             informConnectionListener(connection.connectionListener, false);
         }
     }

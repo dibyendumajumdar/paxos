@@ -10,4 +10,6 @@ import java.time.Duration;
 public interface Connection {
     void submit(ByteBuffer requestData, ResponseHandler responseHandler, Duration timeout);
     boolean isConnected();
+
+    boolean isErrored();
 }
