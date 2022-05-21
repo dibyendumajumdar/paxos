@@ -78,14 +78,18 @@ public class TestMultiPaxos {
         me.addRemotes(remotes);
         Assertions.assertEquals(2, me.quorumSize());
 
+        // we have 2 committed outcomes
         ledger.setOutcome(0, 101);
         ledger.setOutcome(1, 102);
         Assertions.assertEquals(1, ledger.getCommitNum());
 
+        // remote 1 has higher cnum
         r1ledger.setOutcome(0, 101);
         r1ledger.setOutcome(1, 102);
         r1ledger.setOutcome(2, 103);
         r1ledger.setOutcome(3, 104);
+
+        // remote 2 has no commits
 
         // These are acceptors so they actually only need to message me
         remote1.addRemotes(List.of(me, remote2));
@@ -109,7 +113,10 @@ public class TestMultiPaxos {
         Assertions.assertEquals(1, me.prevVoters.size());
         Assertions.assertTrue(me.prevVoters.containsKey(myId));
 
-        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
+        Assertions.assertEquals(1, ledger.getCommitNum());
+        // Process nextBallot message at remote 1
+        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0)); // Should send me LastVote with commits I don't have
+        // After getting commits from remote 1
         Assertions.assertEquals(ledger.getCommitNum(), r1ledger.getCommitNum());
         Assertions.assertEquals(Status.POLLING, me.status);
         Assertions.assertEquals(1, remote1.beginBallotMessages.size());
@@ -123,14 +130,17 @@ public class TestMultiPaxos {
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
         Assertions.assertEquals(42, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
 
+        // First begin ballot will be responded with a pendingVote message
         remote2.receiveBeginBallot(remote2.beginBallotMessages.get(0));
         Assertions.assertEquals(1, remote1.beginBallotMessages.size());
+        // We should have got a reply to Pending vote with committed decrees
         Assertions.assertEquals(2, remote2.beginBallotMessages.size());
         Assertions.assertEquals(1, remote2.beginBallotMessages.get(1).chosenDecrees.length);
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(1).chosenDecrees[0].decreeNum);
         Assertions.assertEquals(42, remote2.beginBallotMessages.get(1).chosenDecrees[0].value);
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(1).committedDecrees.length);
 
+        // Second time remote2 will respond with Voted completing quorum
         remote2.receiveBeginBallot(remote2.beginBallotMessages.get(1));
         Assertions.assertEquals(4, ledger.getCommitNum());
         Assertions.assertEquals(1, remote1.successMessages.size());
@@ -148,6 +158,7 @@ public class TestMultiPaxos {
         Assertions.assertEquals(4, cra.dnum);
         Assertions.assertEquals(0, me.prevVotes.size());
 
+        // Start a new phase 2 ballot
         ClientRequestMessage crm2 = new ClientRequestMessage(new CorrelationId(3, 2), 142);
         me.receiveClientRequest(responseSender, crm2);
         remote1.receiveBeginBallot(remote1.beginBallotMessages.get(1));
