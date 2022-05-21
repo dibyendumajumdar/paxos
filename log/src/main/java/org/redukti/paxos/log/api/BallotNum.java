@@ -7,11 +7,21 @@ package org.redukti.paxos.log.api;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
+/**
+ * A BallotNum uniquely identifies a ballot. For a description of what a ballot is
+ * please refer to the PTP paper by Leslie Lamport.
+ *
+ * BallotNum is made up of two parts - a proposal number, and a process id.
+ * BallotNum's are ordered by proposal number and process id, so that BallotNum(2,0) > BallotNum(1,0).
+ */
 public class BallotNum implements Comparable<BallotNum> {
 
     static final BallotNum MINUS_INFINITY = new BallotNum(-1L,0);
 
     public final long proposalNumber;
+    /**
+     * Identifies the process that owns this ballot number.
+     */
     public final int processNum;
 
     public BallotNum(long proposalNumber, int processNum) {
@@ -21,7 +31,8 @@ public class BallotNum implements Comparable<BallotNum> {
 
     @Override
     public int compareTo(BallotNum o) {
-        if (proposalNumber < 0 && o.proposalNumber < 0) return 0;
+        if (proposalNumber < 0 && o.proposalNumber < 0)
+            return Integer.compare(processNum, o.processNum);
         int result = Long.compare(proposalNumber, o.proposalNumber);
         if (result == 0)
             result = Integer.compare(processNum, o.processNum);

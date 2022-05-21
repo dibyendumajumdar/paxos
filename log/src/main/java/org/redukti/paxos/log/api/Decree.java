@@ -7,6 +7,13 @@ package org.redukti.paxos.log.api;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
+/**
+ * The term Decree comes from the PTP paper by Leslie Lamport.
+ * Each decree has a unique id decreeNum that is >= 0, a NULL decree can be specified by setting a decreeNum < 0.
+ * The value of a decree is a long, but it could be anything. We use a long because its small size
+ * and is good enough to implement Paxos without having to worry about efficiency in storing and communicating
+ * large size values.
+ */
 public class Decree implements Comparable<Decree> {
     public final long decreeNum;
     public final long value;

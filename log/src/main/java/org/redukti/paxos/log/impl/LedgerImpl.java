@@ -15,6 +15,9 @@ import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.List;
 
+// TODO implementation is simple, but we should cache values in memory
+
+
 public class LedgerImpl implements Ledger {
 
     final static Logger log = LoggerFactory.getLogger(LedgerImpl.class);
