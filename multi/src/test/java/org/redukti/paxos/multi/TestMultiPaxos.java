@@ -170,6 +170,9 @@ public class TestMultiPaxos {
         Assertions.assertEquals(0, me.prevVotes.size());
     }
 
+    // scenario
+    // process start a ballot and gets to polling state
+    // But then receives a higher ballot and therefore abandons ballot and reverts to idle
     @Test
     public void testCompetingBallotsPhase1() {
         List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
