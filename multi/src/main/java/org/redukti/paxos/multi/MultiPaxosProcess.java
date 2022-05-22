@@ -154,25 +154,23 @@ public class MultiPaxosProcess {
         }
     }
 
-//    boolean remotesConnected() {
-//        for (ProcessChannel pc: remoteProcesses) {
-//            if (!pc.connection.isConnected())
-//                return false;
-//        }
-//        return true;
-//    }
+    void startClientRequest() {
+        if (me.isPendingClientRequests() && !me.isHandlingClientRequest())
+            me.doOneClientRequest();
+    }
 
     public static void main(String[] args) {
         try {
-            MultiPaxosProcess me = new MultiPaxosProcess();
-            me.parseArguments(args);
-            if (!me.checkArgs()) {
+            MultiPaxosProcess p = new MultiPaxosProcess();
+            p.parseArguments(args);
+            if (!p.checkArgs()) {
                 System.exit(1);
                 return;
             }
-            me.startServer();
+            p.startServer();
             while (true) {
-                me.eventLoop.select();
+                p.eventLoop.select();
+                p.startClientRequest();
             }
         } catch (Exception e) {
             log.error("Error occurred", e);

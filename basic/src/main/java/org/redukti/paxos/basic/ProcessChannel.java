@@ -59,7 +59,7 @@ public class ProcessChannel implements ConnectionListener {
         log.error("Failed to connect to remote process " + def + "; will retry in 10 seconds");
         executorService.schedule(() -> {
             connect();
-        }, 1, TimeUnit.SECONDS);
+        }, 10, TimeUnit.SECONDS);
     }
 
     @Override

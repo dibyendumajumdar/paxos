@@ -31,7 +31,7 @@ public class EventLoopImpl implements EventLoop {
     /**
      * Timeout for select operations; default is 1 sec.
      */
-    long selectTimeout = TimeUnit.MILLISECONDS.convert(1, TimeUnit.SECONDS);
+    long selectTimeout = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
 
     Selector selector;
 

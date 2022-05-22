@@ -90,7 +90,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      */
     ClientRequestMessage currentRequest;
     RequestResponseSender currentResponseSender;
-    // TODO we need a queue to hold pending client requests
+
+    List<ClientRequestHolder> clientQueue = new ArrayList<>();
 
     /**
      * The dnum assigned to the client request
@@ -123,30 +124,51 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         return pid;
     }
 
+    synchronized void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
+        log.info("Received {}", clientRequestMessage);
+        clientQueue.add(new ClientRequestHolder(clientRequestMessage, responseSender));
+    }
+
     /**
      * Start processing a client request
      * Called from synchronized method so thread-safe
      */
-    synchronized void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
-        log.info("Received {}", clientRequestMessage);
-        if (currentRequest == null) {
-            this.currentRequest = clientRequestMessage;
-            this.currentResponseSender = responseSender;
-            chosenDNum = -1;
-            chosenValues.clear();
-            voters.clear();
-            if (status == Status.IDLE) {
-                // try to become the leader
-                tryNewBallot();
-            } else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
-                // already the leader so we can skip phase 1
-                startPolling();
-            } else {
-                // TODO can this happen? We need to reset state here?
-            }
-        } else {
-            // TODO queue it
+    synchronized void processClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
+        log.info("Processing {}", clientRequestMessage);
+        this.currentRequest = clientRequestMessage;
+        this.currentResponseSender = responseSender;
+        chosenDNum = -1;
+        chosenValues.clear();
+        voters.clear();
+        if (status == Status.IDLE) {
+            // try to become the leader
+            tryNewBallot();
+        } else if (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal())) {
+            // already the leader so we can skip phase 1
+            startPolling();
         }
+    }
+
+    public synchronized void doOneClientRequest() {
+        if (currentRequest != null)
+            return;
+        if (clientQueue.isEmpty())
+            return;
+        ClientRequestHolder clientRequestHolder = clientQueue.remove(0);
+        if (status == Status.IDLE || (status == Status.POLLING && ledger.getLastTried().equals(ledger.getMaxBal()))) {
+            processClientRequest(clientRequestHolder.responseSender, clientRequestHolder.request);
+        } else {
+            // Send error response to client
+            sendClientResponse(clientRequestHolder.responseSender, -1, 0);
+        }
+    }
+
+    public synchronized boolean isPendingClientRequests() {
+        return !clientQueue.isEmpty();
+    }
+
+    public synchronized boolean isHandlingClientRequest() {
+        return currentRequest != null;
     }
 
     /**
@@ -161,7 +183,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         // value, such that owner(b) = p.
         BallotNum b = ledger.getLastTried(); // highest ballot tried so far
         BallotNum maxBal = ledger.getMaxBal(); // highest ballot seen so far
-        b = new BallotNum(Math.max(b.proposalNumber,maxBal.proposalNumber)+1, getId());
+        b = new BallotNum(Math.max(b.proposalNumber, maxBal.proposalNumber) + 1, getId());
         ledger.setLastTried(b);
         status = Status.TRYING;
         prevVotes.clear();
@@ -447,9 +469,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
         ClientRequestMessage crm = currentRequest;
         if (crm != null && chosenValue != null) {
-            ClientResponseMessage rm = new ClientResponseMessage(chosenDNum, chosenValue);
-            currentResponseSender.setData(rm.serialize());
-            currentResponseSender.submit();
+            sendClientResponse(currentResponseSender, chosenDNum, chosenValue);
         }
         currentResponseSender = null;
         currentRequest = null;
@@ -457,6 +477,11 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         voters.clear();
     }
 
+    synchronized void sendClientResponse(RequestResponseSender sender, long dnum, long value) {
+        ClientResponseMessage rm = new ClientResponseMessage(dnum, value);
+        sender.setData(rm.serialize());
+        sender.submit();
+    }
 
     synchronized void receiveNack(NackMessage pm) {
         if (status != Status.IDLE && pm.b.equals(ledger.getLastTried()) && pm.maxBal.compareTo(ledger.getMaxBal()) > 0) {
@@ -472,7 +497,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         chosenValues.clear();
         voters.clear();
         chosenDNum = -1;
-        // TODO inform client
+        if (currentRequest != null) {
+            // inform client, dnum = -1 indicates error
+            sendClientResponse(currentResponseSender, -1, 0);
+        }
         currentRequest = null;
         currentResponseSender = null;
     }
@@ -498,6 +526,16 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
         } else {
             log.error("Unknown message {}", pm);
+        }
+    }
+
+    static final class ClientRequestHolder {
+        final ClientRequestMessage request;
+        final RequestResponseSender responseSender;
+
+        public ClientRequestHolder(ClientRequestMessage request, RequestResponseSender responseSender) {
+            this.request = request;
+            this.responseSender = responseSender;
         }
     }
 

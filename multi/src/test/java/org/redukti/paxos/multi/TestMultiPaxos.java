@@ -100,6 +100,7 @@ public class TestMultiPaxos {
         BallotNum prevTried = ledger.getLastTried();
         Assertions.assertTrue(prevTried.isNull());
         me.receiveClientRequest(responseSender, crm);
+        me.doOneClientRequest();
         Assertions.assertEquals(crm, me.currentRequest);
         Assertions.assertEquals(responseSender, me.currentResponseSender);
         Assertions.assertEquals(Status.TRYING, me.status);
@@ -161,6 +162,7 @@ public class TestMultiPaxos {
         // Start a new phase 2 ballot
         ClientRequestMessage crm2 = new ClientRequestMessage(new CorrelationId(3, 2), 142);
         me.receiveClientRequest(responseSender, crm2);
+        me.doOneClientRequest();
         remote1.receiveBeginBallot(remote1.beginBallotMessages.get(1));
         remote1.receiveSuccess(remote1.successMessages.get(1));
         remote2.receiveSuccess(remote2.successMessages.get(1));
@@ -188,6 +190,7 @@ public class TestMultiPaxos {
         BallotNum prevTried = ledger.getLastTried();
         Assertions.assertTrue(prevTried.isNull());
         me.receiveClientRequest(responseSender, crm);
+        me.doOneClientRequest();
         Assertions.assertEquals(crm, me.currentRequest);
         Assertions.assertEquals(responseSender, me.currentResponseSender);
         Assertions.assertEquals(Status.TRYING, me.status);
