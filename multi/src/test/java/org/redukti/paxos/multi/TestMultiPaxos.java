@@ -91,15 +91,21 @@ public class TestMultiPaxos {
 
         // remote 2 has no commits
 
-        // These are acceptors so they actually only need to message me
+        // These are acceptors hence they actually only need to message me
         remote1.addRemotes(List.of(me, remote2));
         remote2.addRemotes(List.of(me, remote1));
 
-        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
-        MockResponseSender responseSender = new MockResponseSender();
         BallotNum prevTried = ledger.getLastTried();
         Assertions.assertTrue(prevTried.isNull());
+        Assertions.assertEquals(Status.IDLE, me.status);
+
+        // Queue new client request
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
         me.receiveClientRequest(responseSender, crm);
+        Assertions.assertEquals(1, me.clientQueue.size());
+
+        // Pickup the client request
         me.doOneClientRequest();
         Assertions.assertEquals(crm, me.currentRequest);
         Assertions.assertEquals(responseSender, me.currentResponseSender);
