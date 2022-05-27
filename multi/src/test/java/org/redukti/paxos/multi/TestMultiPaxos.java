@@ -211,8 +211,8 @@ public class TestMultiPaxos {
         Assertions.assertEquals(Long.valueOf(crm2.requestedValue), r2ledger.getOutcome(5));
     }
 
-    // scenario
-    // process start a ballot and gets to polling state
+    // scenario - ballot contention
+    // process starts a ballot and gets to polling state
     // But then receives a higher ballot and therefore abandons ballot and reverts to idle
     @Test
     public void testCompetingBallotsPhase1() {
@@ -220,14 +220,15 @@ public class TestMultiPaxos {
         me.addRemotes(remotes);
         Assertions.assertEquals(2, me.quorumSize());
 
-        // These are acceptors so they actually only need to message me
+        // These are acceptors hence they actually only need to message me
         remote1.addRemotes(List.of(me, remote2));
         remote2.addRemotes(List.of(me, remote1));
 
-        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
-        MockResponseSender responseSender = new MockResponseSender();
         BallotNum prevTried = ledger.getLastTried();
         Assertions.assertTrue(prevTried.isNull());
+
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
         me.receiveClientRequest(responseSender, crm);
         me.doOneClientRequest();
         Assertions.assertEquals(crm, me.currentRequest);
@@ -245,7 +246,6 @@ public class TestMultiPaxos {
 
         remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
         Assertions.assertEquals(ledger.getCommitNum(), r1ledger.getCommitNum());
-        Assertions.assertEquals(Status.POLLING, me.status);
 
         Assertions.assertEquals(1, me.chosenValues.size());
         Assertions.assertEquals(0, me.chosenDNum);
@@ -254,26 +254,33 @@ public class TestMultiPaxos {
         Assertions.assertEquals(0, remote1.beginBallotMessages.get(0).committedDecrees.length);
         Assertions.assertEquals(1, remote1.beginBallotMessages.get(0).chosenDecrees.length);
         Assertions.assertEquals(0, remote1.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
-        Assertions.assertEquals(42, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assertions.assertEquals(crm.requestedValue, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
         Assertions.assertEquals(1, remote2.beginBallotMessages.size());
         Assertions.assertEquals(0, remote2.beginBallotMessages.get(0).committedDecrees.length);
         Assertions.assertEquals(1, remote2.beginBallotMessages.get(0).chosenDecrees.length);
         Assertions.assertEquals(0, remote2.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
-        Assertions.assertEquals(42, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assertions.assertEquals(crm.requestedValue, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
         Assertions.assertEquals(0, remote1.lastVoteMessages.size());
+
+        Assertions.assertEquals(Status.POLLING, me.status);
+
+        // However now I get a new ballot greater than mine
 
         me.receiveNextBallot(new NextBallotMessage(r1ledger.getLastTried().increment(), remote1.pid, r1ledger.getCommitNum()));
         Assertions.assertEquals(Status.IDLE, me.status);
-        Assertions.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote
+        // Check all state related to ballot was reset
+        Assertions.assertEquals(0, me.prevVotes.size());
         Assertions.assertEquals(0, me.prevVoters.size());
         Assertions.assertEquals(0, me.chosenValues.size());
         Assertions.assertEquals(-1, me.chosenDNum);
+
+        // Check I responded to the new ballot with a last vote
         Assertions.assertEquals(1, remote1.lastVoteMessages.size());
         Assertions.assertEquals(1, remote1.lastVoteMessages.get(0).votes.length);
         Assertions.assertEquals(0, remote1.lastVoteMessages.get(0).votes[0].pid);
         Assertions.assertEquals(ledger.getLastTried(), remote1.lastVoteMessages.get(0).votes[0].ballotNum);
         Assertions.assertEquals(0, remote1.lastVoteMessages.get(0).votes[0].decree.decreeNum);
-        Assertions.assertEquals(42L, remote1.lastVoteMessages.get(0).votes[0].decree.value);
+        Assertions.assertEquals(crm.requestedValue, remote1.lastVoteMessages.get(0).votes[0].decree.value);
     }
 
 
