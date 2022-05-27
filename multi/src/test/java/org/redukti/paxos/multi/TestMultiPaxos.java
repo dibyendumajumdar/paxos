@@ -106,76 +106,109 @@ public class TestMultiPaxos {
         Assertions.assertEquals(1, me.clientQueue.size());
 
         // Pickup the client request
+        // since we are IDLE, it will start a new ballot (election)
+        // And we will have one LastVote from myself with no prior votes in the new ballot
         me.doOneClientRequest();
+        // Check we picked up the client request
+        Assertions.assertEquals(0, me.clientQueue.size());
         Assertions.assertEquals(crm, me.currentRequest);
         Assertions.assertEquals(responseSender, me.currentResponseSender);
+
         Assertions.assertEquals(Status.TRYING, me.status);
+        // Check new ballot is 1+ previous try (in this case -1)
         Assertions.assertEquals(prevTried.increment(), ledger.getLastTried());
+        // check both remotes got the nextballot message
         for (MockRemoteParticipant remoteParticipant : remotes) {
             Assertions.assertEquals(1, remoteParticipant.nextBallotMessages.size());
             Assertions.assertEquals(ledger.getLastTried(), remoteParticipant.nextBallotMessages.get(0).b);
         }
         Assertions.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
-        Assertions.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote
-        Assertions.assertEquals(1, me.prevVoters.size());
+        Assertions.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote yet
+        Assertions.assertEquals(1, me.prevVoters.size()); // I am the only one to respond with lastvote
         Assertions.assertTrue(me.prevVoters.containsKey(myId));
-
+        // No change to my commitnum
         Assertions.assertEquals(1, ledger.getCommitNum());
+
         // Process nextBallot message at remote 1
-        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0)); // Should send me LastVote with commits I don't have
+        // remote 1 has 2 more commits than me, so it should send me success message with those commits prior to lastvote
+        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0)); // Should send me LastVote
+        // We can't direct check that we got success messages, but indirectly we can verify our commitnum matches r1
         // After getting commits from remote 1
         Assertions.assertEquals(ledger.getCommitNum(), r1ledger.getCommitNum());
+        // Given me and r1, we have quorum
+        // So I should have sent begin ballot to both the remotes
+        // and, I am now POLLING or leading
+        // No value was already chosen
         Assertions.assertEquals(Status.POLLING, me.status);
         Assertions.assertEquals(1, remote1.beginBallotMessages.size());
         Assertions.assertEquals(0, remote1.beginBallotMessages.get(0).committedDecrees.length);
         Assertions.assertEquals(1, remote1.beginBallotMessages.get(0).chosenDecrees.length);
         Assertions.assertEquals(4, remote1.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
-        Assertions.assertEquals(42, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assertions.assertEquals(crm.requestedValue, remote1.beginBallotMessages.get(0).chosenDecrees[0].value);
         Assertions.assertEquals(1, remote2.beginBallotMessages.size());
         Assertions.assertEquals(0, remote2.beginBallotMessages.get(0).committedDecrees.length);
         Assertions.assertEquals(1, remote2.beginBallotMessages.get(0).chosenDecrees.length);
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(0).chosenDecrees[0].decreeNum);
-        Assertions.assertEquals(42, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
+        Assertions.assertEquals(crm.requestedValue, remote2.beginBallotMessages.get(0).chosenDecrees[0].value);
 
-        // First begin ballot will be responded with a pendingVote message
+        // r2 doesn't have any of the commits
+        // so when it will respond to begin ballot with a pendingVote message
         remote2.receiveBeginBallot(remote2.beginBallotMessages.get(0));
         Assertions.assertEquals(1, remote1.beginBallotMessages.size());
-        // We should have got a reply to Pending vote with committed decrees
+        // r2 should have got a reply to Pending vote with committed decrees (i.e. another begin ballot)
+        // so now r2 should have all the commits
         Assertions.assertEquals(2, remote2.beginBallotMessages.size());
         Assertions.assertEquals(1, remote2.beginBallotMessages.get(1).chosenDecrees.length);
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(1).chosenDecrees[0].decreeNum);
-        Assertions.assertEquals(42, remote2.beginBallotMessages.get(1).chosenDecrees[0].value);
+        Assertions.assertEquals(crm.requestedValue, remote2.beginBallotMessages.get(1).chosenDecrees[0].value);
+        // Verify I sent all the known commits to r2
         Assertions.assertEquals(4, remote2.beginBallotMessages.get(1).committedDecrees.length);
 
-        // Second time remote2 will respond with Voted completing quorum
+        // Second time remote2 will respond with Voted message, completing quorum
+        // this will result in new value being committed and success messages to both r1 and r2
         remote2.receiveBeginBallot(remote2.beginBallotMessages.get(1));
+        // Check we have a bump in commitnum
         Assertions.assertEquals(4, ledger.getCommitNum());
+        // Both r1 & r2 got success messages
         Assertions.assertEquals(1, remote1.successMessages.size());
         Assertions.assertEquals(1, remote2.successMessages.size());
         remote1.receiveSuccess(remote1.successMessages.get(0));
         remote2.receiveSuccess(remote2.successMessages.get(0));
         Assertions.assertEquals(4, r1ledger.getCommitNum());
         Assertions.assertEquals(4, r2ledger.getCommitNum());
-        Assertions.assertEquals(Long.valueOf(42), ledger.getOutcome(4));
-        Assertions.assertEquals(Long.valueOf(42), r1ledger.getOutcome(4));
-        Assertions.assertEquals(Long.valueOf(42), r2ledger.getOutcome(4));
+        Assertions.assertEquals(Long.valueOf(crm.requestedValue), ledger.getOutcome(4));
+        Assertions.assertEquals(Long.valueOf(crm.requestedValue), r1ledger.getOutcome(4));
+        Assertions.assertEquals(Long.valueOf(crm.requestedValue), r2ledger.getOutcome(4));
+        // Check we responded to client
         Assertions.assertEquals(1, responseSender.responses.size());
         ClientResponseMessage cra = (ClientResponseMessage) PaxosMessages.parseMessage(crm.correlationId, responseSender.responses.get(0));
-        Assertions.assertEquals(42, cra.agreedValue);
+        Assertions.assertEquals(crm.requestedValue, cra.agreedValue);
         Assertions.assertEquals(4, cra.dnum);
+
+        // Check phase 1 votes were cleared
         Assertions.assertEquals(0, me.prevVotes.size());
+
+        // Check our status
+        Assertions.assertEquals(Status.POLLING, me.status);
 
         // Start a new phase 2 ballot
         ClientRequestMessage crm2 = new ClientRequestMessage(new CorrelationId(3, 2), 142);
         me.receiveClientRequest(responseSender, crm2);
+        Assertions.assertEquals(1, me.clientQueue.size());
         me.doOneClientRequest();
+        Assertions.assertEquals(0, me.clientQueue.size());
+        Assertions.assertEquals(Status.POLLING, me.status);
+
         remote1.receiveBeginBallot(remote1.beginBallotMessages.get(1));
         remote1.receiveSuccess(remote1.successMessages.get(1));
         remote2.receiveSuccess(remote2.successMessages.get(1));
         ClientResponseMessage cra2 = (ClientResponseMessage) PaxosMessages.parseMessage(crm.correlationId, responseSender.responses.get(1));
-        Assertions.assertEquals(142, cra2.agreedValue);
+        Assertions.assertEquals(crm2.requestedValue, cra2.agreedValue);
         Assertions.assertEquals(5, cra2.dnum);
         Assertions.assertEquals(0, me.prevVotes.size());
+        Assertions.assertEquals(Long.valueOf(crm2.requestedValue), ledger.getOutcome(5));
+        Assertions.assertEquals(Long.valueOf(crm2.requestedValue), r1ledger.getOutcome(5));
+        Assertions.assertEquals(Long.valueOf(crm2.requestedValue), r2ledger.getOutcome(5));
     }
 
     // scenario
