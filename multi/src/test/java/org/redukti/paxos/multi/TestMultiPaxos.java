@@ -322,6 +322,47 @@ public class TestMultiPaxos {
         Assertions.assertEquals(ledger.getMaxBal(), r1ledger.getMaxBal());
     }
 
+    // Scenario - in phase 1 we received multiple votes for 2 decree nums
+    // check that we choose the correct vote for each ballot
+    // check that we assign the next dnum for the new decree
+    @Test
+    public void testChoosingValues() {
+        List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
+        me.addRemotes(remotes);
+        Assertions.assertEquals(2, me.quorumSize());
+
+        // These are acceptors hence they actually only need to message me
+        remote1.addRemotes(List.of(me, remote2));
+        remote2.addRemotes(List.of(me, remote1));
+
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
+
+        BallotNum prevTried = ledger.getLastTried();
+        Assertions.assertTrue(prevTried.isNull());
+
+        // previous ballots
+        BallotNum b2 = new BallotNum(2, 2);
+        BallotNum b5 = new BallotNum(5, 1);
+        BallotNum b27 = new BallotNum(27, 0);
+
+        // decree 0 votes
+        Vote d0v1 = new Vote(2, b2, new Decree(0, 22));
+        Vote d0v2 = new Vote(1, b5, new Decree(0, 11));
+
+        // prepare me
+        me.status = Status.TRYING;
+        ledger.setLastTried(b27);
+        me.currentRequest = crm;
+        me.currentResponseSender = responseSender;
+        me.receiveLastVote(new LastVoteMessage(b27, 2, 0, new Vote[]{d0v1}));
+        me.receiveLastVote(new LastVoteMessage(b27, 1, 0, new Vote[]{d0v2}));
+
+        Assertions.assertEquals(1, me.chosenDNum);
+        Assertions.assertEquals(Long.valueOf(d0v2.decree.value), me.chosenValues.get(0L));
+        Assertions.assertEquals(Long.valueOf(crm.requestedValue), me.chosenValues.get(me.chosenDNum));
+    }
+
 
     static final class MockResponseSender implements RequestResponseSender {
         List<ByteBuffer> responses = new ArrayList<>();

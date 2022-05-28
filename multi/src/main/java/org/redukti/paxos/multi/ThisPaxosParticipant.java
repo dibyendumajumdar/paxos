@@ -307,7 +307,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // TODO assign no-op to all dnums less than max dnum.
     synchronized void determineChosenValues() {
         chosenDNum = -1;
+        long maxDnumInVotes = -1;
         for (long dnum : prevVotes.keySet()) {
+            if (dnum > maxDnumInVotes)
+                maxDnumInVotes = dnum;
             Set<Vote> votes = prevVotes.get(dnum);
             Vote maxVote = votes.stream().max(Comparator.naturalOrder()).orElse(null);
             Long value;
@@ -323,7 +326,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             chosenValues.put(dnum, value);
         }
         if (chosenDNum < 0) {
-            chosenDNum = ledger.getCommitNum() + 1;
+            chosenDNum = Math.max(ledger.getCommitNum() + 1, maxDnumInVotes + 1);
             chosenValues.put(chosenDNum, currentRequest.requestedValue);
         }
     }
