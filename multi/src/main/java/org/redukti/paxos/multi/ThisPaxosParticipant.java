@@ -484,6 +484,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     synchronized void receiveNack(NackMessage pm) {
+        log.info("Received {}", pm);
         if (status != Status.IDLE && pm.b.equals(ledger.getLastTried()) && pm.maxBal.compareTo(ledger.getMaxBal()) > 0) {
             ledger.setMaxBal(pm.maxBal);
             resetToIdle();

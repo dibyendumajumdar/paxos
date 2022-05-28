@@ -283,6 +283,44 @@ public class TestMultiPaxos {
         Assertions.assertEquals(crm.requestedValue, remote1.lastVoteMessages.get(0).votes[0].decree.value);
     }
 
+    @Test
+    public void testNackInPhase1() {
+        List<MockRemoteParticipant> remotes = List.of(remote1, remote2);
+        me.addRemotes(remotes);
+        Assertions.assertEquals(2, me.quorumSize());
+
+        // These are acceptors hence they actually only need to message me
+        remote1.addRemotes(List.of(me, remote2));
+        remote2.addRemotes(List.of(me, remote1));
+
+        // setup so that remote1 is ahead of me
+        ledger.setMaxBal(new BallotNum(1, me.getId()));
+        r1ledger.setMaxBal(new BallotNum(2, remote1.getId()));
+
+        BallotNum prevBallot = ledger.getMaxBal();
+
+        ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
+        MockResponseSender responseSender = new MockResponseSender();
+        me.receiveClientRequest(responseSender, crm);
+        me.doOneClientRequest();
+        Assertions.assertEquals(crm, me.currentRequest);
+        Assertions.assertEquals(responseSender, me.currentResponseSender);
+        Assertions.assertEquals(Status.TRYING, me.status);
+        Assertions.assertEquals(prevBallot.increment(), ledger.getLastTried());
+        for (MockRemoteParticipant remoteParticipant : remotes) {
+            Assertions.assertEquals(1, remoteParticipant.nextBallotMessages.size());
+            Assertions.assertEquals(ledger.getLastTried(), remoteParticipant.nextBallotMessages.get(0).b);
+        }
+        Assertions.assertEquals(ledger.getLastTried(), ledger.getMaxBal());
+        Assertions.assertEquals(0, me.prevVotes.size()); // Because am not participating in ballots, so no vote
+        Assertions.assertEquals(1, me.prevVoters.size());
+        Assertions.assertTrue(me.prevVoters.containsKey(myId));
+
+        remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
+        // I should have got a nack because r1 is ahead of me
+        Assertions.assertEquals(Status.IDLE, me.status);
+    }
+
 
     static final class MockResponseSender implements RequestResponseSender {
         List<ByteBuffer> responses = new ArrayList<>();
