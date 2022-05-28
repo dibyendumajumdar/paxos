@@ -103,6 +103,7 @@ public class TestMultiPaxos {
         ClientRequestMessage crm = new ClientRequestMessage(new CorrelationId(3, 1), 42);
         MockResponseSender responseSender = new MockResponseSender();
         me.receiveClientRequest(responseSender, crm);
+        Assertions.assertTrue(me.isPendingClientRequests());
         Assertions.assertEquals(1, me.clientQueue.size());
 
         // Pickup the client request
@@ -113,6 +114,8 @@ public class TestMultiPaxos {
         Assertions.assertEquals(0, me.clientQueue.size());
         Assertions.assertEquals(crm, me.currentRequest);
         Assertions.assertEquals(responseSender, me.currentResponseSender);
+        Assertions.assertTrue(me.isHandlingClientRequest());
+        Assertions.assertFalse(me.isPendingClientRequests());
 
         Assertions.assertEquals(Status.TRYING, me.status);
         // Check new ballot is 1+ previous try (in this case -1)
