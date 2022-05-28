@@ -18,6 +18,8 @@ public class Decree implements Comparable<Decree> {
     public final long decreeNum;
     public final long value;
 
+    public static long NOOP_VAL = 0L; // Todo should not an actual value ...
+
     public static int size() {
         return Long.BYTES * 2;
     }

@@ -303,32 +303,33 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
-    // TODO We need to ensure there are no gaps in `dnum`s.
-    // TODO assign no-op to all dnums less than max dnum.
     synchronized void determineChosenValues() {
+        // look at all dnums > commitNum upto and including the max dnum for which we got a
+        // vote. If we have any gaps in the votes then assign NO-OP value to those.
+        // The new value gets the dnum > that all committed / voted values.
+        // The idea of assigning NO-OP values to gaps comes from Lamport's PTP paper.
         chosenDNum = -1;
         long maxDnumInVotes = -1;
-        for (long dnum : prevVotes.keySet()) {
-            if (dnum > maxDnumInVotes)
-                maxDnumInVotes = dnum;
-            Set<Vote> votes = prevVotes.get(dnum);
-            Vote maxVote = votes.stream().max(Comparator.naturalOrder()).orElse(null);
-            Long value;
-            if (maxVote == null || maxVote.ballotNum.isNull()) {
-                if (chosenDNum < 0) {
-                    chosenDNum = dnum;
+        if (!prevVotes.isEmpty()) {
+            maxDnumInVotes = prevVotes.lastKey();
+            for (long dnum = ledger.getCommitNum() + 1; dnum <= maxDnumInVotes; dnum++) {
+                Set<Vote> votes = prevVotes.get(dnum);
+                Vote maxVote = null;
+                if (votes != null) {
+                    maxVote = votes.stream().max(Comparator.naturalOrder()).orElse(null);
                 }
-                value = currentRequest.requestedValue;
-            } else {
-                assert (dnum == maxVote.decree.decreeNum);
-                value = maxVote.decree.value;
+                Long value;
+                if (maxVote == null || maxVote.ballotNum.isNull()) {
+                    value = Decree.NOOP_VAL; // assign NO-OP val to the gap decree
+                } else {
+                    assert (dnum == maxVote.decree.decreeNum);
+                    value = maxVote.decree.value;
+                }
+                chosenValues.put(dnum, value);
             }
-            chosenValues.put(dnum, value);
         }
-        if (chosenDNum < 0) {
-            chosenDNum = Math.max(ledger.getCommitNum() + 1, maxDnumInVotes + 1);
-            chosenValues.put(chosenDNum, currentRequest.requestedValue);
-        }
+        chosenDNum = Math.max(ledger.getCommitNum() + 1, maxDnumInVotes + 1);
+        chosenValues.put(chosenDNum, currentRequest.requestedValue);
     }
 
     //     Part of Phase2a(b,v)
