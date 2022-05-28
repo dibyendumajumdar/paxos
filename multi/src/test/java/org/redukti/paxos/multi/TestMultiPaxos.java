@@ -319,6 +319,7 @@ public class TestMultiPaxos {
         remote1.receiveNextBallot(remote1.nextBallotMessages.get(0));
         // I should have got a nack because r1 is ahead of me
         Assertions.assertEquals(Status.IDLE, me.status);
+        Assertions.assertEquals(ledger.getMaxBal(), r1ledger.getMaxBal());
     }
 
 
