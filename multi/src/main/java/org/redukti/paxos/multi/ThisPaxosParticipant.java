@@ -81,6 +81,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      */
     TreeMap<Long, Long> chosenValues = new TreeMap<>();
     /**
+     * The dnum assigned to the client request
+     */
+    long chosenDNum = -1; // meaningful only if there is a client request
+    /**
      * All participants including ThisPaxosParticipant.
      */
     Set<PaxosParticipant> all = new LinkedHashSet<>();
@@ -93,10 +97,6 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
 
     List<ClientRequestHolder> clientQueue = new ArrayList<>();
 
-    /**
-     * The dnum assigned to the client request
-     */
-    long chosenDNum = -1; // meaningful only if there is a client request
 
     public ThisPaxosParticipant(int id, Ledger ledger) {
         this.ledger = ledger;
