@@ -230,3 +230,8 @@ This step is enabled when `status=polling`.
   to `Success.outcome[dnum]`
 * Advance `p.ledger.commitNum` to the highest consecutive committed `dnum`.
 
+## Implementation
+
+* Almost all of the multi-paxos protocol is implemented
+  in [ThisPaxosParticipant](src/main/java/org/redukti/paxos/multi/ThisPaxosParticipant.java).
+* For more description of the implementation, refer to the [README](README.md).
