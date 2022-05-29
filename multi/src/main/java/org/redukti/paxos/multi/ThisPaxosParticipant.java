@@ -45,7 +45,7 @@ import java.util.*;
  */
 public class ThisPaxosParticipant extends PaxosParticipant implements RequestHandler {
 
-    final static Logger log = LoggerFactory.DEFAULT.getLogger(ThisPaxosParticipant.class.getName());
+    static final Logger log = LoggerFactory.DEFAULT.getLogger(ThisPaxosParticipant.class.getName());
 
     /**
      * Each Paxos process has its unique id.
@@ -109,7 +109,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      */
     public synchronized void addRemotes(List<? extends PaxosParticipant> remoteParticipants) {
         Objects.requireNonNull(remoteParticipants);
-        if ((remoteParticipants.size() + 1) % 2 == 0 || remoteParticipants.size() == 0)
+        if ((remoteParticipants.size() + 1) % 2 == 0 || remoteParticipants.isEmpty())
             throw new IllegalArgumentException("Number of participants must be odd and greater than 1");
         all.addAll(remoteParticipants);
     }
@@ -240,7 +240,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
                     decrees.add(new Decree(cnum, outcome));
                 }
             }
-            if (decrees.size() > 0) {
+            if (!decrees.isEmpty()) {
                 return decrees.toArray(new Decree[decrees.size()]);
             }
         }
@@ -338,7 +338,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         if (b.equals(lastTried) && status == Status.TRYING) {
             for (int i = 0; i < lv.votes.length; i++) {
                 Vote v = lv.votes[i];
-                prevVotes.computeIfAbsent(v.decree.decreeNum, (k) -> new LinkedHashSet<>()).add(v);
+                prevVotes.computeIfAbsent(v.decree.decreeNum, k -> new LinkedHashSet<>()).add(v);
             }
             prevVoters.put(lv.pid, lv.cnum);
             if (prevVoters.size() >= quorumSize()) {
