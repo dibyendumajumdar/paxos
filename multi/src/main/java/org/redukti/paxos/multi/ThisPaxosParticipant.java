@@ -496,6 +496,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receiveVoted(new VotedMessage(prevBal, id));
     }
 
+    /**
+     * Process Voted message, if we are the ballot conductor and we got quorum then we can commit the values,
+     * inform all participants and also inform the client.
+     */
     synchronized void receiveVoted(VotedMessage vm) {
         log.info(getClass(), "receiveVoted", "Received by " + getId() + " from " + vm.pid + " " + vm);
         BallotNum lastTried = ledger.getLastTried();
@@ -528,6 +532,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receiveSuccess(new SuccessMessage(decrees));
     }
 
+    /**
+     * Process success message, save any commits we didn't already know about
+     */
     synchronized void receiveSuccess(SuccessMessage sm) {
         log.info(getClass(), "receiveSuccess", "Received " + sm);
         for (int i = 0; i < sm.decree.length; i++) {
