@@ -5,5 +5,5 @@ plugins {
 dependencies {
     implementation project(':utils')
     implementation project(':net')
-    implementation project(':log')
+    implementation project(':ledger')
 }
