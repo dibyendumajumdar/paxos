@@ -4,9 +4,9 @@
  */
 package org.redukti.paxos.net.impl;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.net.api.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class EventLoopImpl implements EventLoop {
 
-    static final Logger log = LoggerFactory.getLogger(EventLoopImpl.class);
+    static final Logger log = LoggerFactory.DEFAULT.getLogger(EventLoopImpl.class.getName());
 
     /**
      * Timeout for select operations; default is 1 sec.
@@ -117,7 +117,7 @@ public class EventLoopImpl implements EventLoop {
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
         }
         catch (Exception e) {
-            log.error("Error starting server channel", e);
+            log.error(getClass(), "startServerChannel", "Error starting server channel", e);
             errored = true;
             stop = true;
             throw new NetException("Failed to start server channel", e);
@@ -172,7 +172,7 @@ public class EventLoopImpl implements EventLoop {
             }
         } catch (IOException e) {
             errored = true;
-            log.error("Error when selecting events", e);
+            log.error(getClass(), "select", "Error when selecting events", e);
             throw new NetException("Error when selecting events", e);
         }
         Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
@@ -209,7 +209,7 @@ public class EventLoopImpl implements EventLoop {
             }
         } catch (Exception e) {
             connection.setErrored();
-            log.error("Error occurred when completing connection " + connection + ": " + e.getMessage());
+            log.error(getClass(), "handleConnect", "Error occurred when completing connection " + connection + ": " + e.getMessage());
             informConnectionListener(connection.connectionListener, false);
         }
     }
@@ -237,9 +237,9 @@ public class EventLoopImpl implements EventLoop {
                     SelectionKey.OP_READ);
             ConnectionImpl connection = new ConnectionImpl(connId.incrementAndGet(), this, socketChannel, null);
             channelKey.attach(connection);
-            log.info("Accepted connection " + connection);
+            log.info(getClass(), "handleAccept", "Accepted connection " + connection);
         } catch (Exception e) {
-            log.error("Error when accepting connection", e);
+            log.error(getClass(), "handleAccept", "Error when accepting connection", e);
             /*
              * If we failed to accept a new channel, we can still continue serving
              * existing channels, so do not treat this as a fatal error
@@ -263,7 +263,7 @@ public class EventLoopImpl implements EventLoop {
             // Server side
             RequestDispatcher requestDispatcher = new RequestDispatcher(this,
                     protocolHandler, requestHandler, requestHeader, request);
-            log.debug("Scheduling server write of " + requestHeader.getDataSize() + " for " + correlationId);
+            log.debug(getClass(), "queueRequest", "Scheduling server write of " + requestHeader.getDataSize() + " for " + correlationId);
             executor.execute(requestDispatcher);
         }
         else {
@@ -271,10 +271,10 @@ public class EventLoopImpl implements EventLoop {
             ResponseHandler handler = pendingRequests.remove(correlationId);
             if (handler == null) {
                 // No handler so nothing to do
-                log.warn("No handler found for " + correlationId);
+                log.warn(getClass(), "queueRequest", "No handler found for " + correlationId);
                 return;
             }
-            log.debug("Scheduling client response of " + requestHeader.getDataSize()  + " for " + correlationId);
+            log.debug(getClass(), "queueRequest", "Scheduling client response of " + requestHeader.getDataSize() + " for " + correlationId);
             ResponseDispatcher responseDispatcher = new ResponseDispatcher(this, handler, requestHeader, request);
             clientExecutor.execute(responseDispatcher);
         }
@@ -383,7 +383,7 @@ public class EventLoopImpl implements EventLoop {
             try {
                 requestHandler.handleRequest(request, responseGenerator);
             } catch (Exception e) {
-                log.error("Exception occurred when handling request " + requestHeader.getCorrelationId(), e);
+                eventLoop.log.error(getClass(), "run", "Exception occurred when handling request " + requestHeader.getCorrelationId(), e);
                 responseGenerator.setErrored(Objects.toString(e.getMessage()));
             }
         }
@@ -415,7 +415,7 @@ public class EventLoopImpl implements EventLoop {
             try {
                 responseHandler.onResponse(response);
             } catch (Exception e) {
-                EventLoopImpl.log.error("Error in ResponseHandler while processing " + response.getCorrelationId(), e);
+                eventLoop.log.error(getClass(), "run", "Error in ResponseHandler while processing " + response.getCorrelationId(), e);
             }
         }
     }

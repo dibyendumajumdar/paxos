@@ -3,12 +3,18 @@ plugins {
 }
 
 dependencies {
+    implementation project(':utils')
     implementation project(':net')
     implementation project(':log')
 }
 
 tasks.register('uberJar', Jar) {
     archiveClassifier = 'uber'
+    manifest {
+        attributes(
+                'Main-Class': 'org.redukti.paxos.multi.MultiPaxosProcess'
+        )
+    }
 
     from sourceSets.main.output
 

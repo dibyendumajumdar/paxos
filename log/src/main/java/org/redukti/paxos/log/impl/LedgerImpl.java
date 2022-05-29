@@ -1,8 +1,8 @@
 package org.redukti.paxos.log.impl;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.log.api.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -20,7 +20,7 @@ import java.util.List;
 
 public class LedgerImpl implements Ledger {
 
-    final static Logger log = LoggerFactory.getLogger(LedgerImpl.class);
+    final static Logger log = LoggerFactory.DEFAULT.getLogger(LedgerImpl.class.getName());
     public static final int PAGE_SIZE = 8 * 1024;
 
     /**
@@ -148,10 +148,10 @@ public class LedgerImpl implements Ledger {
         File file = new File(basePath);
         if (!file.exists()) {
             if (!create) {
-                log.error("Directory specified by {0} does not exist", basePath);
+                log.error(LedgerImpl.class, "checkBasePath", "Directory specified by " + basePath + " does not exist");
             }
             if (log.isDebugEnabled()) {
-                log.debug("Creating base path " + basePath);
+                log.debug(LedgerImpl.class, "checkBasePath", "Creating base path " + basePath);
             }
             if (!file.mkdirs()) {
                 throw new LedgerException("Failed to create " + basePath);
@@ -178,7 +178,7 @@ public class LedgerImpl implements Ledger {
                 }
             } else {
                 if (log.isDebugEnabled()) {
-                    log.debug("Creating path " + parentFile.getPath());
+                    log.debug(LedgerImpl.class, "getFileName", "Creating path " + parentFile.getPath());
                 }
                 if (!parentFile.mkdirs()) {
                     throw new LedgerException("Failed to create path " + parentFile
@@ -195,7 +195,7 @@ public class LedgerImpl implements Ledger {
      * opened in read/write mode.
      */
     public static Ledger createIfNotExisting(String basePath, String logicalName, int id) {
-        log.info("Creating Ledger " + logicalName + " in " + basePath);
+        log.info(LedgerImpl.class, "createIfNotExisting", "Creating Ledger " + logicalName + " in " + basePath);
         checkBasePath(basePath, true);
         String name = getFileName(basePath, logicalName, true);
         RandomAccessFile rafile;
@@ -226,7 +226,7 @@ public class LedgerImpl implements Ledger {
      */
     public static Ledger open(String basePath, String logicalName, int id)
             throws LedgerException {
-        log.info("Opening Ledger " + logicalName);
+        log.info(LedgerImpl.class, "open", "Opening Ledger " + logicalName);
         checkBasePath(basePath, false);
         String name = getFileName(basePath, logicalName, false);
         RandomAccessFile rafile = null;
@@ -267,36 +267,6 @@ public class LedgerImpl implements Ledger {
         String name = getFileName(basePath, logicalName, false);
         File file = new File(name);
         return file.exists();
-    }
-
-    private static void deleteRecursively(File dir) {
-        if (dir.isDirectory()) {
-            File[] files = dir.listFiles();
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteRecursively(file);
-                } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Deleting " + file.getAbsolutePath());
-                    }
-                    if (!file.delete()) {
-                        throw new LedgerException("Failed to delete " + file.getAbsolutePath());
-                    }
-                }
-            }
-        }
-        if (log.isDebugEnabled()) {
-            log.debug(" Deleting " + dir.getAbsolutePath());
-        }
-        if (!dir.delete()) {
-            throw new LedgerException("Failed to delete " + dir.getAbsolutePath());
-        }
-    }
-
-    public static void drop(String basePath) {
-        checkBasePath(basePath, false);
-        File file = new File(basePath);
-        deleteRecursively(file);
     }
 
     static Header initialHeader(int id) {
@@ -386,7 +356,7 @@ public class LedgerImpl implements Ledger {
         } catch (IOException e) {
             throw new LedgerException("Error closing ledger " + name, e);
         }
-        log.info("Ledger " + name + " closed");
+        log.info(LedgerImpl.class, "close", "Ledger " + name + " closed");
     }
 
     public final synchronized void lock() {

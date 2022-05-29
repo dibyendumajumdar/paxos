@@ -1,0 +1,3 @@
+plugins {
+    id 'paxos.java-library-conventions'
+}

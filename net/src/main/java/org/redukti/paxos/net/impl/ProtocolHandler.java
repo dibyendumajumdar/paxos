@@ -79,7 +79,7 @@ public abstract class ProtocolHandler {
     synchronized void doRead(SelectionKey key) {
 
         if (!okay) {
-            EventLoopImpl.log.error("Channel in error state");
+            eventLoop.log.error(getClass(), "doRead", "Channel in error state");
             throw new NetException("Channel has errored");
         }
         try {
@@ -123,7 +123,7 @@ public abstract class ProtocolHandler {
                 if (readState == STATE_HEADER_COMPLETED) {
                     /* parse the header */
                     requestHeader.retrieve(readHeader.flip());
-                    EventLoopImpl.log.debug("Reading payload of " + requestHeader.getDataSize());
+                    eventLoop.log.debug(getClass(), "doRead", "Reading payload of " + requestHeader.getDataSize());
                     /* allocate buffer for reading the payload */
                     readPayload = ByteBuffer.allocate(requestHeader
                             .getDataSize());
@@ -141,7 +141,7 @@ public abstract class ProtocolHandler {
                         /* we got the payload */
                         readState = STATE_PAYLOAD_COMPLETED;
                         if (readPayload.limit() != requestHeader.getDataSize()) {
-                            EventLoopImpl.log.error("Read " + readPayload.limit() + " but expected " + requestHeader.getDataSize());
+                            eventLoop.log.error(getClass(), "doRead", "Read " + readPayload.limit() + " but expected " + requestHeader.getDataSize());
                             throw new IOException();
                         }
                     } else {
@@ -160,7 +160,7 @@ public abstract class ProtocolHandler {
                 }
             }
         } catch (SocketException e) {
-            EventLoopImpl.log.error("Error in read operation", e);
+            eventLoop.log.error(getClass(), "doRead", "Error in read operation", e);
             if (e.getMessage().equals("Connection reset")) {
                 connectionReset();
             }
@@ -168,7 +168,7 @@ public abstract class ProtocolHandler {
                 failed();
             }
         } catch (IOException e) {
-            EventLoopImpl.log.error("Error in read operation", e);
+            eventLoop.log.error(getClass(), "doRead", "Error in read operation", e);
             failed();
         }
     }
@@ -197,7 +197,7 @@ public abstract class ProtocolHandler {
      */
     synchronized void doWrite(SelectionKey key) {
         if (!okay) {
-            EventLoopImpl.log.error("Channel in error state");
+            eventLoop.log.error(getClass(), "doWrite", "Channel in error state");
             throw new NetException("");
         }
         try {
@@ -258,7 +258,7 @@ public abstract class ProtocolHandler {
                 }
             }
         } catch (IOException e) {
-            EventLoopImpl.log.error("Error in write operation", e);
+            eventLoop.log.error(getClass(), "doWrite", "Error in write operation", e);
             failed();
         }
     }

@@ -23,18 +23,18 @@
  */
 package org.redukti.paxos.multi;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.ResponseHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
 public class RemotePaxosParticipant extends PaxosParticipant implements ResponseHandler {
 
-    final static Logger log = LoggerFactory.getLogger(RemotePaxosParticipant.class);
+    final static Logger log = LoggerFactory.DEFAULT.getLogger(RemotePaxosParticipant.class.getName());
 
     int id;
     ProcessChannel remote;
@@ -49,44 +49,44 @@ public class RemotePaxosParticipant extends PaxosParticipant implements Response
         return id;
     }
 
-    PaxosMessage logit(PaxosMessage m) {
-        log.info("Sending " + m + " to " + remote);
+    PaxosMessage logit(PaxosMessage m, String method) {
+        log.info(getClass(), method, "Sending " + m + " to " + remote);
         return m;
     }
 
     @Override
     public void sendNextBallot(BallotNum b, int pid, long cnum) {
-        remote.connection.submit(logit(new NextBallotMessage(b, pid, cnum)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new NextBallotMessage(b, pid, cnum), "sendNextBallot").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendLastVoteMessage(BallotNum b, int pid, long cnum, Vote[] votes) {
-        remote.connection.submit(logit(new LastVoteMessage(b, pid, cnum, votes)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new LastVoteMessage(b, pid, cnum, votes), "sendLastVoteMessage").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendBeginBallot(BallotNum b, int pid, long cnum, Decree[] chosenDecrees, Decree[] committedDecrees) {
-        remote.connection.submit(logit(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new BeginBallotMessage(b, pid, cnum, chosenDecrees, committedDecrees), "sendBeginBallot").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendPendingVote(BallotNum b, int pid, long cnum) {
-        remote.connection.submit(logit(new PendingVoteMessage(b, pid, cnum)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new PendingVoteMessage(b, pid, cnum), "sendPendingVote").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendVoted(BallotNum prevBal, int id) {
-        remote.connection.submit(logit(new VotedMessage(prevBal, id)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new VotedMessage(prevBal, id), "sendVoted").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendNack(BallotNum b, BallotNum maxBal, int pid) {
-        remote.connection.submit(logit(new NackMessage(b, maxBal, pid)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new NackMessage(b, maxBal, pid), "sendNack").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override
     public void sendSuccess(Decree[] decrees) {
-        remote.connection.submit(logit(new SuccessMessage(decrees)).serialize(), this, Duration.ofSeconds(5));
+        remote.connection.submit(logit(new SuccessMessage(decrees), "sendSuccess").serialize(), this, Duration.ofSeconds(5));
     }
 
     @Override

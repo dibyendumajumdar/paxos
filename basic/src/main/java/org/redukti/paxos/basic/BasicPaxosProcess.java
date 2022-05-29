@@ -23,12 +23,12 @@
  */
 package org.redukti.paxos.basic;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.log.impl.LedgerImpl;
 import org.redukti.paxos.net.api.EventLoop;
 import org.redukti.paxos.net.impl.EventLoopImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class BasicPaxosProcess {
 
-    final static Logger log = LoggerFactory.getLogger(BasicPaxosProcess.class);
+    final static Logger log = LoggerFactory.DEFAULT.getLogger(BasicPaxosProcess.class.getName());
 
     int myId = -1;
     ProcessDef myDef;
@@ -114,7 +114,7 @@ public class BasicPaxosProcess {
             result = false;
         }
         if (!result) {
-            log.error(errmsg.toString());
+            log.error(getClass(), "checkArgs", errmsg.toString());
         }
         else {
             myDef = new ProcessDef(allDefs.get(myId).address, allDefs.get(myId).port);
@@ -186,7 +186,7 @@ public class BasicPaxosProcess {
             }
         }
         catch (Exception e) {
-            log.error("Error occurred", e);
+            log.error(BasicPaxosProcess.class, "main", "Error occurred", e);
             System.exit(1);
         }
     }

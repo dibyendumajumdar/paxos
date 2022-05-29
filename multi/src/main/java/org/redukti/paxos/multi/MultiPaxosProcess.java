@@ -23,12 +23,12 @@
  */
 package org.redukti.paxos.multi;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.log.impl.LedgerImpl;
 import org.redukti.paxos.net.api.EventLoop;
 import org.redukti.paxos.net.impl.EventLoopImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +40,7 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class MultiPaxosProcess {
 
-    final static Logger log = LoggerFactory.getLogger(MultiPaxosProcess.class);
+    final static Logger log = LoggerFactory.DEFAULT.getLogger(MultiPaxosProcess.class.getName());
 
     int pid = -1;
     ProcessDef myDef;
@@ -111,7 +111,7 @@ public class MultiPaxosProcess {
             result = false;
         }
         if (!result) {
-            log.error(errmsg.toString());
+            log.error(getClass(), "checkArgs", errmsg.toString());
         } else {
             myDef = new ProcessDef(allDefs.get(pid).address, allDefs.get(pid).port);
             ledgerName = "ledger_" + pid + ".log";
@@ -173,7 +173,7 @@ public class MultiPaxosProcess {
                 p.startClientRequest();
             }
         } catch (Exception e) {
-            log.error("Error occurred", e);
+            log.error(MultiPaxosProcess.class, "main", "Error occurred", e);
             System.exit(1);
         }
     }

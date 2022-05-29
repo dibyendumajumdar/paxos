@@ -1,18 +1,18 @@
 package org.redukti.paxos.net.example.echoserv;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
 import org.redukti.paxos.net.api.RequestResponseSender;
 import org.redukti.paxos.net.impl.EventLoopImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EchoServer implements RequestHandler {
 
-    static final Logger log = LoggerFactory.getLogger(EventLoopImpl.class);
+    static final Logger log = LoggerFactory.DEFAULT.getLogger(EventLoopImpl.class.getName());
 
     static AtomicInteger requests = new AtomicInteger(0);
 
@@ -35,7 +35,7 @@ public class EchoServer implements RequestHandler {
 
     @Override
     public void handleRequest(Message request, RequestResponseSender responseSender) {
-        log.info("Handling request " + request.getCorrelationId());
+        log.info(getClass(), "handleRequest", "Handling request " + request.getCorrelationId());
         int value = request.getData().rewind().getInt();
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.putInt(value);

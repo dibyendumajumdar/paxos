@@ -1,3 +1,7 @@
 plugins {
     id 'paxos.java-library-conventions'
 }
+
+dependencies {
+    implementation project(':utils')
+}

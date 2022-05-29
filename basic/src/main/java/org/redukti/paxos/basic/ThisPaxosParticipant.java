@@ -23,14 +23,14 @@
  */
 package org.redukti.paxos.basic;
 
+import org.redukti.logging.Logger;
+import org.redukti.logging.LoggerFactory;
 import org.redukti.paxos.log.api.BallotNum;
 import org.redukti.paxos.log.api.Decree;
 import org.redukti.paxos.log.api.Ledger;
 import org.redukti.paxos.net.api.Message;
 import org.redukti.paxos.net.api.RequestHandler;
 import org.redukti.paxos.net.api.RequestResponseSender;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
  */
 public class ThisPaxosParticipant extends PaxosParticipant implements RequestHandler {
 
-    final static Logger log = LoggerFactory.getLogger(ThisPaxosParticipant.class);
+    final static Logger log = LoggerFactory.DEFAULT.getLogger(ThisPaxosParticipant.class.getName());
 
     /**
      * Each Paxos process has its unique id.
@@ -119,7 +119,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * Called from synchronized method so thread-safe
      */
     void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage pm) {
-        log.info("Received " + pm);
+        log.info(getClass(), "receiveClientRequest", "Received " + pm);
         if (currentRequest == null) {
             this.currentRequest = pm;
             this.currentResponseSender = responseSender;
@@ -185,7 +185,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * maxVBal[a] and maxVal[a].
      */
     void receiveNextBallot(NextBallotMessage pm) {
-        log.info("Received " + pm);
+        log.info(getClass(), "receiveNextBallot", "Received " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveNextBallotEnabled(b, maxBal)) {
@@ -235,7 +235,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     // If b = lastTried [p] and status[p] = trying, then
     // – Set prevVotes[p] to the union of its original value and {v}.
     void receiveLastVote(LastVoteMessage lv) {
-        log.info("Received " + lv);
+        log.info(getClass(), "receiveLastVote", "Received " + lv);
         BallotNum b = lv.b;
         BallotNum lastTried = ledger.getLastTried();
         if (b.equals(lastTried) && status == Status.TRYING) {
@@ -307,7 +307,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
      * Also known as Phase2b(a)
      */
     void receiveBeginBallot(BeginBallotMessage pm) {
-        log.info("Received " + pm);
+        log.info(getClass(), "receiveBeginBallot", "Received " + pm);
         BallotNum b = pm.b;
         BallotNum maxBal = ledger.getMaxBal();
         if (receiveBeginBallotEnabled(b, maxBal)) {
@@ -343,7 +343,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveVoted(VotedMessage vm) {
-        log.info("Received " + vm);
+        log.info(getClass(), "receiveVoted", "Received " + vm);
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = vm.b;
         if (b.equals(lastTried) && status == Status.POLLING) {
@@ -379,7 +379,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     void receiveSuccess(SuccessMessage sm) {
-        log.info("Received " + sm);
+        log.info(getClass(), "receiveSuccess", "Received " + sm);
         Long v = ledger.getOutcome(sm.decree.decreeNum);
         if (v == null) {
             ledger.setOutcome(sm.decree.decreeNum, sm.decree.value);
@@ -417,7 +417,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
             receiveClientRequest(responseSender, (ClientRequestMessage) pm);
         }
         else {
-            log.error("Unknown message " + pm);
+            log.error(getClass(), "handleRequest", "Unknown message " + pm);
         }
     }
 
