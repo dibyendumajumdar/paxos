@@ -35,5 +35,4 @@ The main classes are as given below.
 * BasicPaxosProcess - a server process that runs the basic paxos
 * BasicPaxosClient - a simple client
 
-The Ledger is defined in the `log` project.
-All Decree values are of long type, to keep the implementation simple.
+The Ledger is defined in the `ledger` project. All Decree values are of long type, to keep the implementation simple.

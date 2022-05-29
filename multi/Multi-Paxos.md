@@ -56,12 +56,15 @@ Thus, `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in
   * `trying` - trying to begin ballot number `ledger.lastTried` - aka TRYING_TO_BE_LEADER
   * `polling` - Conducting ballot number `ledger.lastTried` - aka LEADING
   * On startup the status is assumed to be `idle`.
-
-* `prevVotes[dnum]` - For each `dnum`, the set of votes received in `LastVote` messages for the current ballot (i.e. ballot number in `ledger.lastTried`).
-* `prevVoters` - the set of voters who returned `LastVote` messages in response to `NextBallot`.
-* `voters` - the set of processes including `p`, from whom the ballot conductor has received `Voted` messages in the current ballot, only meaningful when `status == polling`.
+* `pid` - the process id
+* `prevVotes[dnum]` - For each `dnum`, the set of votes received in `LastVote` (phase 1) messages for the current
+  ballot (ballot number in `ledger.lastTried`).
+* `prevVoters` - the set of voters (in phase 1) who returned `LastVote` messages in response to `NextBallot`.
+* `voters` - the set of processes (in phase 2) including `p`, from whom the ballot conductor has received `Voted`
+  messages in the current ballot, only meaningful when `status == polling`.
 * `chosenValues[]` - if `status == polling`, then the set of decrees in the current ballot, otherwise meaningless.
-* `chosenDnum` - if `status == polling`, then the `dnum` assigned to client decree assigned for current ballot, otherwise meaningless.
+* `chosenDnum` - if `status == polling`, then the `dnum` assigned to client decree assigned for current ballot,
+  otherwise meaningless.
 
 ## Messages 
 
@@ -72,126 +75,158 @@ Thus, `maxVal(dnum)` and `maxVBal(dnum)` only have meaning when the decree is in
 * `Voted` - aka ACCEPTED 2b - message sent by participant to ballot conductor in response to `BeginBallot`.
 * `Success` - message sent by ballot conductor to all processes once the ballot is successfully completed.
 
-The content and timing of each message is described below, except for `PendingVote` - the definition and purpose of each message is as per the PTP paper.
-The `PendingVote` message is an additional message used to bring a process up-to-date before it responds with a `Voted` message.
+The content and timing of each message is described below, except for `PendingVote` - the definition and purpose of each
+message is as per the PTP paper. The `PendingVote` message is an additional message used to bring a process up-to-date
+before it responds with a `Voted` message.
 
 ## Algorithm for Multi Paxos.
 
 The following algorithm must be implemented for each process that is participating in a Multi Paxos run.
 
-### Start New Ballot (Phase 1)
+### P000 On Client Request
 
-This step is invoked when a new ballot must be started, perhaps on client request.
+This step enabled by `p` if there are no client requests in process and a new request has arrived.
 
-* If `p.status` == `idle`.
-  * Let `b = ledger.lastTried + 1`, where `1` is added to the proposal number. First valid proposal number is thus `0`, as initial value of `ledger.lastTried` is `(-1, p.id)`.
-  * Set `ledger.lastTried` to `b`.
+* If `p.status == idle` do `P101 Start New Ballot`.
+* Else if `p.status == polling` and `ledger.maxBal == ledger.lastTried`, do `P200 Start New Vote`.
+
+### P101 Start New Ballot (Phase 1)
+
+This step is enabled when a new ballot must be started, e.g. on client request.
+
+* If `p.status` == `idle`, i.e. process `p` is a follower so must try to be leader.
+  * Let `b = Ballot(max(p.ledger.lastTried.pnum, p.ledger.maxBal.pnum) + 1, p.pid)`, where `1` is added to the proposal
+    number. First valid proposal number is thus `0`, as initial value of `ledger.lastTried` and `ledger.maxBal`
+    is `(-1, p.pid)`.
+  * Set `p.ledger.lastTried` to `b`.
   * Set `p.status` to `trying`.
   * Set `p.prevVotes` and `p.prevVoters` to empty set.
   * Set `p.chosenValues` to the empty set.
-  * Set `p.chosenDnum` to `-1`. 
-  * To each process participating in multi paxos, send `NextBallot(ledger.lastTried, p.pid, ledger.commitNum)` PREPARE 1a message, including to itself.
-* Else If `ledger.maxBal == ledger.lastTried` and `p.status == polling` then and , i.e. process is already a leader
+  * Set `p.chosenDnum` to `-1`.
+  * To each process participating in multi paxos, send `NextBallot(p.ledger.lastTried, p.pid, p.ledger.commitNum)`
+    PREPARE 1a message, including to itself.
+
+PTP note: If process `p` has all decrees with numbers less than or equal to `commitnum` then he sends
+a `NextBallot(b,commitnum)` message in all instances of the Synod protocol for decree numbers larger than `commitnum`.
+
+Any process receiving the `NextBallot` is required to inform `p` of any commits it is missing before responding with
+a `LastVote` message.
+
+### P200 Start New Vote (Phase 2)
+
+* If `p.ledger.maxBal == p.ledger.lastTried` and `p.status == polling` then and , i.e. process is already a leader
   * Set `p.chosenValues` to the empty set.
-  * Set `p.chosenDnum` to `-1`. 
-  * Jump to Start Polling (Phase 2).
+  * Set `p.chosenDnum` to `-1`.
+  * Jump to `P201 Start Polling` (Phase 2).
 
-PTP note: If process `p` has all decrees with numbers less than or equal to `commitnum` then he sends a `NextBallot(b,commitnum)` message in all instances of the 
-Synod protocol for decree numbers larger than `commitnum`.
-
-### Receive `NextBallot(b,pid,commitnum)` PREPARE 1a, conditionally send `LastVote` PROMISE 1b
+### P102 Receive `NextBallot(b,pid,commitnum)` PREPARE 1a, conditionally send `LastVote` PROMISE 1b
 
 This is executed by each process `q` that receives the `NextBallot` message.
 
 * Let `b` = `NextBallot.b`.
-* To the sender of ballot `b`, i.e. `owner(b)`, send `Success` message for all decrees with outcomes `(dnum,outcome)` from `q.ledger` where `dnum` > `NextBallot.commitnum`
+* To the sender of ballot `b`, i.e. `owner(b)`, send `Success` message for all decrees with outcomes `(dnum,outcome)`
+  from `q.ledger` where `dnum` > `NextBallot.commitnum`. This step ensures that the ballot conductor is made aware of
+  any commits it is missing.
 * if `b > q.ledger.maxBal` then
   * Set `q.ledger.maxBal` to `b`
+  * If `q` is not the owner of ballot `b` then at this point it needs to reset its state to `idle` as it is going to be
+    a follower from here on.
   * To the sender of ballot `b`, i.e. `owner(b)`, send `LastVote` (PROMISE 1b) message with following contents
-    * all decrees that `q` voted in and whose outcome is not yet `committed` or `noop` status in  `q.ledger`:
+    * all decrees that `q` voted in and whose outcome is not yet `committed` in `q.ledger`:
       * `pid` - `q.id` (i.e. the id of the process sending the `LastVote`)
-      * `b` - ballot number
+      * `b` - ballot number `q` is responding to
       * `v[]` Votes containing
         * `dnum`
-        * `ledger.maxVBal(dnum)` 
-        * `ledger.maxVal(dnum)`
+        * `ledger.maxVBal(dnum)` - max ballot number `q` voted in
+        * `ledger.maxVal(dnum)` - value associated with max ballot number above
       * `commitNum` to `q.ledger.commitNum`.
-    
-In his response to the `NextBallot` message, `q` informs `p` of all decrees numbered greater than `commitnum` that already appear in q's ledger
-(in addition to sending the usual `LastVote` information for decrees not in his ledger), and he asks `p` to send him any decrees numbered `commitnum` or
-less that are not in his ledger.
 
-### Receive `LastVote(pid,b,commitNum,votes[])` PROMISE 1b message
+PTP note: In his response to the `NextBallot` message, `q` informs `p` of all decrees numbered greater than `commitnum`
+that already appear in q's ledger
+(in addition to sending the usual `LastVote` information for decrees not in his ledger), and he asks `p` to send him any
+decrees numbered `commitnum` or less that are not in his ledger.
 
-* if `LastVote.commitnum < ledger.commitnum` then send `Success` message to `LastVote.owner` for all decrees with outcomes from `LastVote.commitnum+1` to `p.commitnum`.
+Note that the last bit is somewhat different, because the way we manage `commitnum` ensures that it is the highest
+consecutive committed `dnum`, the invariant being that all decrees below `commitnum` already appear in `q`'s ledger at
+this point. Instead, we send `commitnum`
+so that `p` can inform us of any commits greater than our `commitnum`.
+
+### P103 Receive `LastVote(pid,b,commitNum,votes[])` PROMISE 1b message
+
+* if `LastVote.commitnum < p.ledger.commitnum` then send `Success` message to `LastVote.owner` for all decrees with
+  outcomes from `LastVote.commitnum+1` to `p.commitnum`.
 * if `b == ledger.lastTried` and `p.status == trying` then
-  * Add `LastVote.votes[]` to the set `p.prevVotes[]`. Note that two votes that are from different participants (i.e. `LastVote.voter` is different), must be considered as distinct votes here.
+  * Add `LastVote.votes[]` to the set `p.prevVotes[]`. Note that two votes that are from different participants (
+    i.e. `LastVote.voter` is different), must be considered as distinct votes here.
   * Add `pid` of voter to `prevVoters`
-  * If count `prevVoters` >= to `quorumSize` then start polling.
+  * If count `prevVoters` >= to `quorumSize` then do `P201 Start Polling`.
 
-### Determine chosen values
+### P201a Determine chosen values
 
-Goal is that all `dnum`s that are less than the max `dnum` in `LastVote` messages either get already
-voted values or no-op if no value was voted. The `dnum` that is equal to the max `dnum` in `prevVotes` 
-also gets any previously voted value, else it gets the client requested value. If all `dnum` had non-empty
-voted values then the client requested value is assigned a new `dnum` greater than all previous `dnum`s.
+Goal is that all `dnum`s that are less than the max `dnum` in `LastVote` messages either get already voted values or
+no-op if no value was voted. The client requested value is assigned a new `dnum` greater than all previous `dnum`s.
 
 We need to ensure there are no gaps in `dnum`s.
 
-* Let `maxVote[dnum]` = `MaxVote(prevVotes[dnum])` for all `dnum` in `prevVotes`.
-* Set `chosenDnum` = `-1`.
-* If `maxVote[]` has any ballot `b` with proposal number `-1`
-  * For all `dnum` != `max(dnum in prevVotes)` and `maxVote[dnum].b.pnum` == `-1` set `chosenValues[dnum]` to `noop`.
-  * If `dnum` == `max(dnum in prevVotes)` and `maxVote[dnum]b.pnum` == `-1` then set `chosenDnum` to `dnum`.
-* For all `maxVote` with ballot `b` and proposal number `>=0` set `chosenValues[dnum]` to `maxVote[decree].decree`.
-* If `chosenDnum` == `-1` then set `chosenDnum` to the `max(dnum)+1`
-* Set `chosenValues[chosenDnum]` to client provided decree
+* If `p.prevVotes` is not empty
+  * For all `dnum` greater than `p.ledger.commitNum` and less or equal to `max(dnum)` in `p.prevVotes`,
+    where `p.prevVotes[dnum]` is not an empty set, set `p.chosenValues[dnum]` = `MaxVote(p.prevVotes[dnum])`.
+  * For all `dnum` greater than `p.ledger.commitNum` and less or equal to `max(dnum)` in `p.prevVotes`,
+    where `p.prevVotes[dnum]` is an empty set, set `p.chosenValues[dnum]` = `no-op`.
+* Set `p.chosenDnum` to `max(max(dnum in p.prevVotes), p.ledger.commitNum)+1`
+* Set `p.chosenValues[chosenDnum]` to client provided decree
 
-
-### Start Polling (Phase 2) - Send `BeginBallot(b,decree)` ACCEPT 2a 
+### P201 Start Polling (Phase 2) - Send `BeginBallot(b,decree)` ACCEPT 2a
 
 This step is enabled when `status=trying` and there is a quorum of votes in `prevVotes[*]` as described above.
 
-* Set `status` to `polling`
-* Determine chosen values
-* Send `BeginBallot(b,p.pid,p.commitNum,p.chosenValues[],committedDecrees=[])` ACCEPT 2a to all the participants, including itself.
+* Set `p.status` to `polling`
+* Do `P201a Determine chosen values`
+* Send `P202 BeginBallot(b,p.pid,p.commitNum,p.chosenValues,committedDecrees=[])` ACCEPT 2a to all the participants,
+  including itself. Note `committedDecrees` is set to the empty set.
 
-### Receive `BeginBallot(b,pid,commitNum,chosenValues[],committedDecrees[])` ACCEPT 2a message, conditionally send `Voted` ACCEPTED 2b 
+### P202 Receive `BeginBallot(b,pid,commitNum,chosenValues,committedDecrees)` ACCEPT 2a message, conditionally send `Voted` ACCEPTED 2b
 
 This is executed by each process `q` that receives the `BeginBallot` message.
 
 * If `BeginBallot.b >= ledger.maxBal`
-  * Set `ledger.maxBal` to `BeginBallot.b`
+  * Set `q.ledger.maxBal` to `BeginBallot.b`
   * for each decree in `BeginBallot.committedDecrees`
-    * Set `ledger.outcome[dnum]` to `BeginBallot.committedDecrees[dnum]`
+    * Set `q.ledger.outcome[dnum]` to `BeginBallot.committedDecrees[dnum]`
+    * Advance `q.ledger.commitNum` to the highest consecutive committed `dnum`.
   * for each decree in `BeginBallot.chosenValues`
-    * Set `ledger.maxVBal[dnum]` to `BeginBallot.b`
-    * Set `ledger.maxVal[dnum]` to `BeginBallot.decree[dnum]`
-  * If `q.ledger.commitNum` < `BeginBallot.commitNum` 
-    * Send to the owner of ballot `owner(BeginBallot.b)`, a `PendingVote(b, q.pid, q.ledger.commitNum)` PENDING ACCEPT 2ba message where `pid` is the process sending the `PendingVote` message.
+    * Set `q.ledger.maxVBal[dnum]` to `BeginBallot.b`
+    * Set `q.ledger.maxVal[dnum]` to `BeginBallot.decree[dnum]`
+  * If `q.ledger.commitNum` < `BeginBallot.commitNum`
+    * Send to the owner of ballot `owner(BeginBallot.b)`, a `PendingVote(b, q.pid, q.ledger.commitNum)` PENDING ACCEPT
+      2ba message where `q.pid` is the process sending the `PendingVote` message.
   * Else
-    * Send to the owner of ballot `owner(BeginBallot.b)`, a `Voted(b, q.pid)` ACCEPTED 2b message where `pid` is the process sending the `Voted` message.
+    * Send to the owner of ballot `owner(BeginBallot.b)`, a `Voted(b, q.pid)` ACCEPTED 2b message where `q.pid` is the
+      process sending the `Voted` message.
 
-### Receive `PendingVote(b,voter,commitNum)` PENDING ACCEPT 2ba message
+### P203 Receive `PendingVote(b,voter,commitNum)` PENDING ACCEPT 2ba message
 
-This step is enabled when `status=polling`.
+This message means that the sender is willing to vote but is lagging behind in commits, and needs to update its commits
+prior to voting. This step is enabled when `status=polling`.
 
-* If `Voted.b == ledger.lastTried` and `status == polling`
+* If `Voted.b == p.ledger.lastTried` and `p.status == polling`
   * Let `p.committedDecrees` be the set of decrees with `dnum` > `PendingVote.commitNum` that are in `p`'s ledger
-  * Send `BeginBallot(b,p.pid,p.commitNum,p.chosenValues[],p.committedDecrees[])` ACCEPT 2a to `PendingVote.voter`.
+  * Send `BeginBallot(b,p.pid,p.commitNum,p.chosenValues,p.committedDecrees)` ACCEPT 2a to `PendingVote.voter`.
 
-### Receive `Voted(b,voter)` ACCEPTED 2b message
+### P204 Receive `Voted(b,voter)` ACCEPTED 2b message
 
 This step is enabled when `status=polling`.
 
-* if `Voted.b == ledger.lastTried` and `status == polling`
-  * Add voter process `Voted.voter` to the set of `voters`.
-  * If count of `voters` is `>=` to `quorumSize` then
-    * For all `dnum` in `chosenValues` if `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `chosenValues[dnum]`
-    * Send `Success(chosenValues[])` to all participants, including itself.
+* if `Voted.b == p.ledger.lastTried` and `p.status == polling`
+  * Add voter process `Voted.voter` to the set of `p.voters`.
+  * If count of `p.voters` is `>=` to `quorumSize` then
+    * For all `dnum` in `p.chosenValues` if `p.ledger.outcome[dnum]` is NULL then set `p.ledger.outcome[dnum]`
+      to `p.chosenValues[dnum]`
+    * Send `Success(p.chosenValues)` to all participants, including itself.
 
-### Receive `Success(outcomes[])` message
+### P300 Receive `Success(outcomes[])` message
 
-* For all `Success.outcomes[]`, if `ledger.outcome[dnum]` is NULL then set `ledger.outcome[dnum]` to `Success.outcome[dnum]`
-* Advance `ledger.commitNum` to the highest consecutive committed `dnum`.
+* For all `Success.outcomes[]`, if `p.ledger.outcome[dnum]` is NULL then set `p.ledger.outcome[dnum]`
+  to `Success.outcome[dnum]`
+* Advance `p.ledger.commitNum` to the highest consecutive committed `dnum`.
 
