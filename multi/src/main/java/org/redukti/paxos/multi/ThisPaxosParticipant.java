@@ -104,6 +104,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.add(this);
     }
 
+    /**
+     * Add remote participants ensuring we have an odd number in total
+     */
     public synchronized void addRemotes(List<? extends PaxosParticipant> remoteParticipants) {
         Objects.requireNonNull(remoteParticipants);
         if ((remoteParticipants.size() + 1) % 2 == 0 || remoteParticipants.size() == 0)
@@ -111,12 +114,16 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         all.addAll(remoteParticipants);
     }
 
-    synchronized PaxosParticipant findParticipant(int owner) {
+    /**
+     * Find a participant given its pid; we should only be communicating with registered
+     * participants, hence not finding the participant is impossible.
+     */
+    synchronized PaxosParticipant findParticipant(int pid) {
         for (PaxosParticipant p : all) {
-            if (p.getId() == owner)
+            if (p.getId() == pid)
                 return p;
         }
-        throw new IllegalArgumentException("Participant " + owner + " is not known");
+        throw new IllegalArgumentException("Participant " + pid + " is not known");
     }
 
     @Override
@@ -124,6 +131,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         return pid;
     }
 
+    /**
+     * Add a client request to the queue
+     *
+     * @param responseSender       This is the callback to invoke to send a message back to the client
+     * @param clientRequestMessage This is the client request
+     */
     synchronized void receiveClientRequest(RequestResponseSender responseSender, ClientRequestMessage clientRequestMessage) {
         log.info(getClass(), "receiveClientRequest", "Received " + clientRequestMessage);
         clientQueue.add(new ClientRequestHolder(clientRequestMessage, responseSender));
@@ -149,6 +162,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Entrypoint to initiate processing a client request.
+     */
     public synchronized void doOneClientRequest() {
         if (currentRequest != null)
             return;
@@ -172,6 +188,7 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     /**
+     * Start a new ballot (i.e. leader election)
      * Also known as Phase1a(b)
      * In the Phase1a(b) action, it sends to all acceptors a phase 1a message that begins ballot b.
      * See PTP p26. In theory always enabled but here we enable it when the process is IDLE.
@@ -191,6 +208,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         nextBallot(b, ledger.getCommitNum());
     }
 
+    /**
+     * Sends a NextBallot message to all participants including myself
+     *
+     * @param b         ballot number
+     * @param commitNum My commitNum
+     */
     synchronized void nextBallot(BallotNum b, long commitNum) {
         for (PaxosParticipant p : all) {
             p.sendNextBallot(b, pid, commitNum);
@@ -202,6 +225,12 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receiveNextBallot(new NextBallotMessage(b, pid, commitNum));
     }
 
+    /**
+     * Retrieve all decrees that are in my ledger with committed status
+     * but the sender of the message is missing
+     *
+     * @param pi Participant who wants to get an update of commits
+     */
     synchronized Decree[] getCommittedDecrees(ParticipantInfo pi) {
         if (pi.commitNum() < ledger.getCommitNum()) {
             ArrayList<Decree> decrees = new ArrayList<>();
@@ -219,8 +248,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     /**
-     * If the next ballot sender has commitnum < ledger.commitnum then
-     * send an update
+     * If the participant has commitnum < ledger.commitnum then
+     * send an update to it, with all the commits that we know about but
+     * they don't
      */
     synchronized void updateParticipant(ParticipantInfo pm) {
         if (pm.getPid() == getId())
@@ -232,6 +262,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Retrieve any votes cast in undecided (pending) ballots.
+     */
     static synchronized Vote[] getVotes(int pid, Ledger ledger) {
         List<BallotedDecree> undecidedBallots = ledger.getUndecidedBallots();
         Vote[] votes = new Vote[undecidedBallots.size()];
@@ -250,6 +283,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         log.info(getClass(), method, "Received by " + getId() + " from " + m.getPid() + " " + m);
     }
 
+    /**
+     * Process a NextBallot message (phase 1a) - if it is greater than any ballots
+     * we have seen then send a LastVote message to the ballot sender (also our status must be set to
+     * idle)
+     * <p>
+     * If We are on a ballot that is > than the sender then send a Nack.
+     */
     synchronized void receiveNextBallot(NextBallotMessage pm) {
         logMessageReceived(pm, "receiveNextBallot");
         updateParticipant(pm);
@@ -286,6 +326,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         return (all.size() + 1) / 2;
     }
 
+    /**
+     * Process a LastVote message. If the sender is behind with commits then send
+     * updates to it. If the ballot is ours and we got quorum then commence phase 2.
+     */
     synchronized void receiveLastVote(LastVoteMessage lv) {
         logMessageReceived(lv, "receiveLastVote");
         updateParticipant(lv);
@@ -303,11 +347,13 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Look at all dnums > commitNum upto and including the max dnum for which we got a
+     * vote. If we have any gaps in the votes then assign NO-OP value to those.
+     * The new value gets the dnum > that all committed / voted values.
+     * The idea of assigning NO-OP values to gaps comes from Lamport's PTP paper.
+     */
     synchronized void determineChosenValues() {
-        // look at all dnums > commitNum upto and including the max dnum for which we got a
-        // vote. If we have any gaps in the votes then assign NO-OP value to those.
-        // The new value gets the dnum > that all committed / voted values.
-        // The idea of assigning NO-OP values to gaps comes from Lamport's PTP paper.
         chosenDNum = -1;
         long maxDnumInVotes = -1;
         if (!prevVotes.isEmpty()) {
@@ -332,7 +378,10 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         chosenValues.put(chosenDNum, currentRequest.requestedValue);
     }
 
-    //     Part of Phase2a(b,v)
+    /**
+     * Start phase 2 - i.e. we are now the leader as we got
+     * a quorum of participants promising to ignore all ballot < ours.
+     */
     synchronized void startPolling() {
         status = Status.POLLING;
         determineChosenValues();
@@ -340,7 +389,8 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     /**
-     * Part of Phase2a(b,v)
+     * Part of Phase2a(b,v) - send a BeginBallot message to participants
+     * including myself
      */
     synchronized void beginBallot() {
         assert status == Status.POLLING;
@@ -350,6 +400,9 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         }
     }
 
+    /**
+     * Format the chosenValues as decrees
+     */
     synchronized Decree[] getChosenDecrees() {
         Decree[] decrees = new Decree[chosenValues.size()];
         int i = 0;
@@ -370,7 +423,20 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
     }
 
     /**
-     * Also known as Phase2b(a)
+     * Also known as Phase2b(a), receive BeginBallot from the leader/proposer.
+     * Unlike the PTP paper where only processes that participated in phase 1 responded,
+     * here, like in the 2019 TLA+ spec of basic paxos, we respond if the ballot is greater than
+     * or equal to any we have seen. Note that therefore we must update our maxBal.
+     *
+     * We also have an enhancement here - if we see that the proposer is ahead of us in
+     * commits (this can happen if we had crashed and rejoined after a period of time and therefore
+     * didn't see some commits) - we send a PendingVote message - this tells proposer that we are
+     * ready to wait, but we need any commits we don't know about. The proposer will resend the
+     * BeginBallot with the missing commits.
+     *
+     * If we know about all the commits then we are good to respond with Voted message.
+     *
+     * If the proposer's ballot number is less than what we know, then we send a Nack message.
      */
     synchronized void receiveBeginBallot(BeginBallotMessage pm) {
         logMessageReceived(pm, "receiveBeginBallot");
@@ -407,13 +473,21 @@ public class ThisPaxosParticipant extends PaxosParticipant implements RequestHan
         receivePendingVote(new PendingVoteMessage(b, pid, cnum));
     }
 
+    /**
+     * Process a PendingVote message - this means that the sender is behind in terms of
+     * commits. We resend them the BeginBallot message again but this time include any commits
+     * they need to know about.
+     */
     synchronized void receivePendingVote(PendingVoteMessage m) {
         logMessageReceived(m, "receivePendingVote");
         BallotNum lastTried = ledger.getLastTried();
         BallotNum b = m.b;
+        PaxosParticipant p = findParticipant(m.pid);
         if (b.equals(lastTried) && status == Status.POLLING) {
-            PaxosParticipant p = findParticipant(m.pid);
             p.sendBeginBallot(m.b, getId(), ledger.getCommitNum(), getChosenDecrees(), getCommittedDecrees(m));
+        } else {
+            // Okay we are not leading anymore but still inform the sender about commits they are missing.
+            updateParticipant(m);
         }
     }
 
